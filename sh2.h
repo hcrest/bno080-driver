@@ -1,0 +1,610 @@
+/*
+ * Copyright 2015-16 Hillcrest Laboratories, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License and 
+ * any applicable agreements you may have with Hillcrest Laboratories, Inc.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file sh2.h
+ * @author David Wheeler
+ * @date 22 Sept 2015
+ * @brief API Definition for Hillcrest SH-2 Sensor Hub.
+ *
+ * The sh2 API provides functions for opening a session with
+ * the sensor hub and performing all supported operations with it.
+ * This includes enabling sensors and reading events as well as
+ * other housekeeping functions.
+ *
+ */
+
+// TODO-DW : Generalize reset callback to an event callback, use it to report FRS changes.
+
+#ifndef SH2_H
+#define SH2_H
+
+#include <stdint.h>
+#include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+    /***************************************************************************************
+     * Type definitions
+     **************************************************************************************/
+
+    enum sh2_AsyncEventId_e {
+        SH2_RESET,
+        SH2_FRS_CHANGE,
+    };
+    typedef enum sh2_AsyncEventId_e sh2_AsyncEventId_t;
+    
+    /**
+     * @brief Asynchronous Event
+     *
+     * Represents reset events and other non-sensor events received from SH-2 sensor hub.
+     */
+    typedef struct sh2_AsyncEvent {
+        uint32_t eventId;
+        uint16_t frsType;
+    } sh2_AsyncEvent_t;
+
+    typedef void (sh2_EventCallback_t)(void * cookie, sh2_AsyncEvent_t *pEvent);
+
+    /**
+     * @brief Sensor Event
+     *
+     * See the SH-2 Reference Manual for more detail.
+     */
+    typedef struct sh2_SensorEvent {
+        uint64_t timestamp_uS;
+        uint8_t reportId;
+        uint8_t *pReport;
+        uint8_t len;
+    } sh2_SensorEvent_t;
+
+    typedef void (sh2_SensorCallback_t)(void * cookie, sh2_SensorEvent_t *pEvent);
+
+    typedef struct sh2_OpEvent {
+        unsigned unit;
+        int status;
+    } sh2_OpEvent_t;
+
+    typedef void (sh2_OpCallback_t)(void *cookie, sh2_OpEvent_t *pEvent);
+
+    /**
+     * @brief Product Id value
+     *
+     * See the SH-2 Reference Manual for more detail.
+     */
+    typedef struct sh2_ProductId_s {
+        uint8_t resetCause;
+        uint8_t swVersionMajor;
+        uint8_t swVersionMinor;
+        uint32_t swPartNumber;
+        uint32_t swBuildNumber;
+        uint16_t swVersionPatch;
+        uint8_t reserved0;
+        uint8_t reserved1;
+    } sh2_ProductId_t;
+
+    #define SH2_NUM_PROD_ID_ENTRIES (2)
+    typedef struct sh2_ProductIds_s {
+        sh2_ProductId_t entry[SH2_NUM_PROD_ID_ENTRIES];
+        uint8_t nextEntry;
+    } sh2_ProductIds_t;
+
+    /**
+     * @brief List of sensor types supported by the hub
+     *
+     * See the SH-2 Reference Manual for more information on each type.
+     */
+    enum sh2_SensorId_e {
+        SH2_RAW_ACCELEROMETER = 0x14,
+        SH2_ACCELEROMETER = 0x01,
+        SH2_LINEAR_ACCELERATION = 0x04,
+        SH2_GRAVITY = 0x06,
+        SH2_RAW_GYROSCOPE = 0x15,
+        SH2_GYROSCOPE_CALIBRATED = 0x02,
+        SH2_GYROSCOPE_UNCALIBRATED = 0x07,
+        SH2_RAW_MAGNETOMETER = 0x16,
+        SH2_MAGNETIC_FIELD_CALIBRATED = 0x03,
+        SH2_MAGNETIC_FIELD_UNCALIBRATED = 0x0f,
+        SH2_ROTATION_VECTOR = 0x05,
+        SH2_GAME_ROTATION_VECTOR = 0x08,
+        SH2_GEOMAGNETIC_ROTATION_VECTOR = 0x09,
+        SH2_PRESSURE = 0x0a,
+        SH2_AMBIENT_LIGHT = 0x0b,
+        SH2_HUMIDITY = 0x0c,
+        SH2_PROXIMITY = 0x0d,
+        SH2_TEMPERATURE = 0x0e,
+        SH2_RESERVED = 0x17,
+        SH2_TAP_DETECTOR = 0x10,
+        SH2_STEP_DETECTOR = 0x18,
+        SH2_STEP_COUNTER = 0x11,
+        SH2_SIGNIFICANT_MOTION = 0x12,
+        SH2_STABILITY_CLASSIFIER = 0x13,
+        SH2_SHAKE_DETECTOR = 0x19,
+        SH2_FLIP_DETECTOR = 0x1a,
+        SH2_PICKUP_DETECTOR = 0x1b,
+        SH2_STABILITY_DETECTOR = 0x1c,
+        SH2_PERSONAL_ACTIVITY_CLASSIFIER = 0x1e,
+        SH2_SLEEP_DETECTOR = 0x1f,
+        SH2_TILT_DETECTOR = 0x20,
+        SH2_POCKET_DETECTOR = 0x21,
+        SH2_CIRCLE_DETECTOR = 0x22,
+        SH2_HEART_RATE_MONITOR = 0x23,
+        SH2_ARVR_STABILIZED_RV = 0x28,
+        SH2_ARVR_STABILIZED_GRV = 0x29,
+        SH2_GYRO_INTEGRATED_RV = 0x2A,
+    };
+    typedef uint8_t sh2_SensorId_t;
+
+    /**
+     * @brief Sensor Configuration settings
+     *
+     * See the SH-2 Reference Manual for more detail.
+     */
+    typedef struct sh2_SensorConfig {
+        /* Change sensitivity enabled */
+        bool changeSensitivityEnabled;  /**< @brief Enable reports on change */
+
+        /* Change sensitivity - true if relative; false if absolute */
+        bool changeSensitivityRelative;  /**< @brief Change reports relative (vs absolute) */
+
+        /* Wake-up enabled */
+        bool wakeupEnabled;  /**< @brief Wake host on event */
+
+        /* Always on enabled */
+        bool alwaysOnEnabled;  /**< @brief Sensor remains on in sleep state */
+        /* 16-bit signed fixed point integer representing the value a
+         * sensor output must exceed in order to trigger another input
+         * report. A setting of 0 causes all reports to be sent.
+         */
+        uint16_t changeSensitivity;  /**< @brief Report-on-change threshold */
+
+        /* Interval in microseconds between asynchronous input reports. */
+        uint32_t reportInterval_us;  /**< @brief [uS] Report interval */
+
+        /* Reserved field, not used. */
+        uint32_t batchInterval_us;  /**< @brief [uS] Batch interval */
+
+        /* Meaning is sensor specific */
+        uint32_t sensorSpecific;  /**< @brief See SH-2 Reference Manual for details. */
+    } sh2_SensorConfig_t;
+
+    /**
+     * @brief Sensor Metadata Record
+     *
+     * See the SH-2 Reference Manual for more detail.
+     */
+    typedef struct sh2_SensorMetadata {
+        uint8_t meVersion;   /**< @brief Motion Engine Version */
+        uint8_t mhVersion;  /**< @brief Motion Hub Version */
+        uint8_t shVersion;  /**< @brief SensorHub Version */
+        uint32_t range;  /**< @brief Same units as sensor reports */
+        uint32_t resolution;  /**< @brief Same units as sensor reports */
+        uint16_t revision;  /**< @brief Metadata record format revision */
+        uint16_t power_mA;    /**< @brief [mA] Fixed point 16Q10 format */
+        uint32_t minPeriod_uS;  /**< @brief [uS] */
+        uint32_t fifoReserved;  /**< @brief (Unused) */
+        uint32_t fifoMax;  /**< @brief (Unused) */
+        uint32_t batchBufferBytes;  /**< @brief (Unused) */
+        uint16_t qPoint1;     /**< @brief q point for sensor values */
+        uint16_t qPoint2;     /**< @brief q point for accuracy or bias fields */
+        uint32_t vendorIdLen; /**< @brief [bytes] */
+        char vendorId[48];  /**< @brief Vendor name and part number */
+        uint32_t sensorSpecificLen;  /**< @brief [bytes] */
+        uint8_t sensorSpecific[48];  /**< @brief See SH-2 Reference Manual */
+    } sh2_SensorMetadata_t;
+
+    /**
+     * @brief SensorHub Error Record
+     *
+     * See the SH-2 Reference Manual for more detail.
+     */
+    typedef struct sh2_ErrorRecord {
+        uint8_t severity;   /**< @brief Error severity, 0: most severe. */
+        uint8_t sequence;   /**< @brief Sequence number (by severity) */
+        uint8_t source;     /**< @brief 1-MotionEngine, 2-MotionHub, 3-SensorHub, 4-Chip  */
+        uint8_t error;      /**< @brief See SH-2 Reference Manual */
+        uint8_t module;     /**< @brief See SH-2 Reference Manual */
+        uint8_t code;       /**< @brief See SH-2 Reference Manual */
+    } sh2_ErrorRecord_t;
+
+    /**
+     * @brief SensorHub Counter Record
+     *
+     * See the SH-2 Reference Manual for more detail.
+     */
+    typedef struct sh2_Counts {
+        uint32_t offered;   /**< @brief [events] */
+        uint32_t accepted;  /**< @brief [events] */
+        uint32_t on;        /**< @brief [events] */
+        uint32_t attempted; /**< @brief [events] */
+    } sh2_Counts_t;
+
+    /**
+     * @brief Values for specifying tare basis
+     *
+     * See the SH-2 Reference Manual for more detail.
+     */
+    typedef enum sh2_TareBasis {
+        SH2_TARE_BASIS_ROTATION_VECTOR = 0,             /**< @brief Use Rotation Vector */
+        SH2_TARE_BASIS_GAMING_ROTATION_VECTOR = 1,      /**< @brief Use Game Rotation Vector */
+        SH2_TARE_BASIS_GEOMAGNETIC_ROTATION_VECTOR = 2, /**< @brief Use Geomagnetic R.V. */
+    } sh2_TareBasis_t;
+
+    /**
+     * @brief Bit Fields for specifying tare axes.
+     *
+     * See the SH-2 Reference Manual for more detail.
+     */
+    typedef enum sh2_TareAxis {
+        SH2_TARE_X = 1,  /**< @brief sh2_tareNow() axes bit field */
+        SH2_TARE_Y = 2,  /**< @brief sh2_tareNow() axes bit field */
+        SH2_TARE_Z = 4,  /**< @brief sh2_tareNow() axes bit field */
+    } sh2_TareAxis_t;
+
+    /**
+     * @brief Quaternion (double precision floating point representation.)
+     *
+     * See the SH-2 Reference Manual for more detail.
+     */
+    typedef struct sh2_Quaternion {
+        double x;
+        double y;
+        double z;
+        double w;
+    } sh2_Quaternion_t;
+
+    /**
+     * @brief Oscillator type: Internal or External
+     *
+     * See the SH-2 Reference Manual for more detail.
+     */
+    typedef enum {
+        SH2_OSC_INTERNAL = 0,
+        SH2_OSC_EXTERNAL = 1,
+    } sh2_OscType_t;
+
+    // FRS Record Ids
+    #define STATIC_CALIBRATION_AGM                   (0x7979)
+    #define NOMINAL_CALIBRATION                      (0x4D4D)
+    #define STATIC_CALIBRATION_SRA                   (0x8A8A)
+    #define NOMINAL_CALIBRATION_SRA                  (0x4E4E)
+    #define DYNAMIC_CALIBRATION                      (0x1F1F)
+    #define ME_POWER_MGMT                            (0xD3E2)
+    #define SYSTEM_ORIENTATION                       (0x2D3E)
+    #define ACCEL_ORIENTATION                        (0x2D41)
+    #define SCREEN_ACCEL_ORIENTATION                 (0x2D43)
+    #define GYROSCOPE_ORIENTATION                    (0x2D46)
+    #define MAGNETOMETER_ORIENTATION                 (0x2D4C)
+    #define ARVR_STABILIZATION_RV                    (0x3E2D)
+    #define ARVR_STABILIZATION_GRV                   (0x3E2E)
+    #define TAP_DETECT_CONFIG                        (0xC269)
+    #define SIG_MOTION_DETECT_CONFIG                 (0xC274)
+    #define SHAKE_DETECT_CONFIG                      (0x7D7D)
+    #define MAX_FUSION_PERIOD                        (0xD7D7)
+    #define SERIAL_NUMBER                            (0x4B4B)
+    #define ES_PRESSURE_CAL                          (0x39AF)
+    #define ES_TEMPERATURE_CAL                       (0x4D20)
+    #define ES_HUMIDITY_CAL                          (0x1AC9)
+    #define ES_AMBIENT_LIGHT_CAL                     (0x39B1)
+    #define ES_PROXIMITY_CAL                         (0x4DA2)
+    #define ALS_CAL                                  (0xD401)
+    #define PROXIMITY_SENSOR_CAL                     (0xD402)
+    #define PICKUP_DETECTOR_CONFIG                   (0x1B2A)
+    #define FLIP_DETECTOR_CONFIG                     (0xFC94)
+    #define STABILITY_DETECTOR_CONFIG                (0xED85)
+    #define ACTIVITY_TRACKER_CONFIG                  (0xED88)
+    #define SLEEP_DETECTOR_CONFIG                    (0xED87)
+    #define TILT_DETECTOR_CONFIG                     (0xED89)
+    #define POCKET_DETECTOR_CONFIG                   (0xEF27)
+    #define CIRCLE_DETECTOR_CONFIG                   (0xEE51)
+    #define USER_RECORD                              (0x74B4)
+    #define ME_TIME_SOURCE_SELECT                    (0xD403)
+    #define UART_FORMAT                              (0xA1A1)
+    #define GYRO_INTEGRATED_RV_CONFIG                (0xA1A2)
+    #define FRS_ID_META_RAW_ACCELEROMETER            (0xE301)
+    #define FRS_ID_META_ACCELEROMETER                (0xE302)
+    #define FRS_ID_META_LINEAR_ACCELERATION          (0xE303)
+    #define FRS_ID_META_GRAVITY                      (0xE304)
+    #define FRS_ID_META_RAW_GYROSCOPE                (0xE305)
+    #define FRS_ID_META_GYROSCOPE_CALIBRATED         (0xE306)
+    #define FRS_ID_META_GYROSCOPE_UNCALIBRATED       (0xE307)
+    #define FRS_ID_META_RAW_MAGNETOMETER             (0xE308)
+    #define FRS_ID_META_MAGNETIC_FIELD_CALIBRATED    (0xE309)
+    #define FRS_ID_META_MAGNETIC_FIELD_UNCALIBRATED  (0xE30A)
+    #define FRS_ID_META_ROTATION_VECTOR              (0xE30B)
+    #define FRS_ID_META_GAME_ROTATION_VECTOR         (0xE30C)
+    #define FRS_ID_META_GEOMAGNETIC_ROTATION_VECTOR  (0xE30D)
+    #define FRS_ID_META_PRESSURE                     (0xE30E)
+    #define FRS_ID_META_AMBIENT_LIGHT                (0xE30F)
+    #define FRS_ID_META_HUMIDITY                     (0xE310)
+    #define FRS_ID_META_PROXIMITY                    (0xE311)
+    #define FRS_ID_META_TEMPERATURE                  (0xE312)
+    #define FRS_ID_META_TAP_DETECTOR                 (0xE313)
+    #define FRS_ID_META_STEP_DETECTOR                (0xE314)
+    #define FRS_ID_META_STEP_COUNTER                 (0xE315)
+    #define FRS_ID_META_SIGNIFICANT_MOTION           (0xE316)
+    #define FRS_ID_META_STABILITY_CLASSIFIER         (0xE317)
+    #define FRS_ID_META_SHAKE_DETECTOR               (0xE318)
+    #define FRS_ID_META_FLIP_DETECTOR                (0xE319)
+    #define FRS_ID_META_PICKUP_DETECTOR              (0xE31A)
+    #define FRS_ID_META_STABILITY_DETECTOR           (0xE31B)
+    #define FRS_ID_META_PERSONAL_ACTIVITY_CLASSIFIER (0xE31C)
+    #define FRS_ID_META_SLEEP_DETECTOR               (0xE31D)
+    #define FRS_ID_META_TILT_DETECTOR                (0xE31E)
+    #define FRS_ID_META_POCKET_DETECTOR              (0xE31F)
+    #define FRS_ID_META_CIRCLE_DETECTOR              (0xE320)
+    #define FRS_ID_META_HEART_RATE_MONITOR           (0xE321)
+    #define FRS_ID_META_ARVR_STABILIZED_RV           (0xE322)
+    #define FRS_ID_META_ARVR_STABILIZED_GRV          (0xE323)
+    #define FRS_ID_META_GYRO_INTEGRATED_RV           (0xE324)
+
+
+    /***************************************************************************************
+     * Public API
+     **************************************************************************************/
+
+    /**
+     * @brief Initialize a session with the SensorHub.
+     *
+     * This function should be called before any others in this API.
+     * The HAL and SHTP layers should be initialized BEFORE calling sh2_init().
+     * 
+     * As part of the initialization process, a callback function is registered that will
+     * be invoked when the device completes the reset process.
+     *
+     * @param  unit Which SensorHub to open if the system supports multiple units.
+     * @param  resetCallback Will be called when the sensorhub completes the reset process.
+     * @param  resetCookie Will be passed to resetCallback.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_initialize(unsigned unit, sh2_EventCallback_t *eventCallback, void *resetCookie);
+
+    /**
+     * @brief Register a function to receive sensor events.
+     *
+     * @param  unit Which SensorHub to use.
+     * @param  callback A function that will be called each time a sensor event is received.
+     * @param  cookie  A value that will be passed to the sensor callback function.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_setSensorCallback(unsigned unit, sh2_SensorCallback_t *callback, void *cookie);
+
+    /**
+     * @brief Get Product ID information from Sensorhub.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  prodIds Pointer to structure that will receive results.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_getProdIds(unsigned unit,
+                       sh2_ProductIds_t *prodIds);
+
+    /**
+     * @brief Get sensor configuration.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  sensorId Which sensor to query.
+     * @param  config SensorConfig structure to store results.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_getSensorConfig(unsigned unit,
+                            sh2_SensorId_t sensorId, sh2_SensorConfig_t *config);
+
+    /**
+     * @brief Set sensor configuration. (e.g enable a sensor at a particular rate.)
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  sensorId Which sensor to configure.
+     * @param  pConfig Pointer to structure holding sensor configuration.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_setSensorConfig(unsigned unit,
+                            sh2_SensorId_t sensorId, const sh2_SensorConfig_t *pConfig);
+
+    /**
+     * @brief Get metadata related to a sensor.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  sensorId Which sensor to query.
+     * @param  pData Pointer to structure to receive the results.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_getMetadata(unsigned unit,
+                        sh2_SensorId_t sensorId, sh2_SensorMetadata_t *pData);
+
+    /**
+     * @brief Get an FRS record
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  recordId Which FRS Record to retrieve.
+     * @param  pData pointer to buffer to receive the results
+     * @param  words number of 16-bit words to receive.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_getFrs(unsigned unit,
+                   uint16_t recordId, uint32_t *pData, uint16_t *words);
+
+    /**
+     * @brief Set an FRS record
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  recordId Which FRS Record to set.
+     * @param  pData pointer to buffer containing the new data.
+     * @param  words number of 16-bit words to write.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_setFrs(unsigned unit,
+                   uint16_t recordId, uint32_t *pData, uint16_t words);
+
+    /**
+     * @brief Get error counts.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  severity Only errors of this severity or greater are returned.
+     * @param  pErrors Buffer to receive error codes.
+     * @param  numErrors size of pErrors array
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_getErrors(unsigned unit,
+                      uint8_t severity, sh2_ErrorRecord_t *pErrors, uint16_t *numErrors);
+
+    /**
+     * @brief Read counters related to a sensor.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  sensorId Which sensor to operate on.
+     * @param  pCounts Pointer to Counts structure that will receive data.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_getCounts(unsigned unit,
+                      sh2_SensorId_t sensorId, sh2_Counts_t *pCounts);
+
+    /**
+     * @brief Clear counters related to a sensor.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  sensorId which sensor to operate on.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_clearCounts(unsigned unit,
+                        sh2_SensorId_t sensorId);
+
+    /**
+     * @brief Perform a tare operation on one or more axes.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  axes Bit mask specifying which axes should be tared.
+     * @param  basis Which rotation vector to use as the basis for Tare adjustment.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_setTareNow(unsigned unit,
+                    uint8_t axes,    // SH2_TARE_X | SH2_TARE_Y | SH2_TARE_Z
+                    sh2_TareBasis_t basis);
+
+    /**
+     * @brief Clears the previously applied tare operation.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_clearTare(unsigned unit);
+
+    /**
+     * @brief Persist the results of last tare operation to flash.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_persistTare(unsigned unit);
+
+    /**
+     * @brief Set the current run-time sensor reorientation. (Set to zero to clear tare.)
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  orientation Quaternion rotation vector to apply as new tare.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_setReorientation(unsigned unit,
+                             sh2_Quaternion_t *orientation);
+
+    /**
+     * @brief Command the sensorhub to reset.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_reinitialize(unsigned unit);
+
+    /**
+     * @brief Save Dynamic Calibration Data to flash.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_saveDcdNow(unsigned unit);
+
+    /**
+     * @brief Get Oscillator type.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  pOscType pointer to data structure to receive results.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_getOscType(unsigned unit,
+                       sh2_OscType_t *pOscType);
+
+    // Flags for sensors field of sh_calConfig
+    #define SH2_CAL_ACCEL (0x01)
+    #define SH2_CAL_GYRO  (0x02)
+    #define SH2_CAL_MAG   (0x04)
+
+    /**
+     * @brief Enable/Disable dynamic calibration for certain sensors
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  sensors Bit mask to configure which sensors are affected.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_setCalConfig(unsigned unit,
+                      uint8_t sensors);
+
+
+    /**
+     * @brief Synchronize Rotation Vector reports at this moment.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_syncRvNow(unsigned unit);
+
+    /**
+     * @brief Enable external synchronization of rotation vector reports
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  enabled enable or disable external synchronization.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_setExtSync(unsigned unit,
+                      bool enabled);
+
+    /**
+     * @brief Configure automatic saving of dynamic calibration data.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  enabled Enable or Disable DCD auto-save.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_setDcdAutoSave(unsigned unit,
+                        bool enabled);
+
+    /**
+     * @brief Immediately issue all buffered sensor reports from a given sensor.
+     * 
+     * @param  unit Which Sensorhub to use.
+     * @param  sensorId Which sensor reports to flush.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_flush(unsigned unit,
+                  sh2_SensorId_t sensorId);
+
+#ifdef __cplusplus
+}   // end of extern "C"
+#endif
+
+#endif
