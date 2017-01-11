@@ -47,17 +47,17 @@ typedef void shtp_Callback_t(void * cookie, uint8_t *payload, uint16_t len, uint
 typedef void shtp_AdvertCallback_t(void * cookie, uint8_t tag, uint8_t len, uint8_t *value);
 typedef void shtp_SendCallback_t(void *cookie);
 
-int shtp_init(unsigned unit);
+int shtp_init(void);
 
-int shtp_listenChan(unsigned unit, const char * app, const char * chan,
+int shtp_listenChan(const char * app, const char * chan,
                     shtp_Callback_t *callback, void * cookie);
 
-int shtp_listenAdvert(unsigned unit, const char * appName,
+int shtp_listenAdvert(const char * appName,
                       shtp_AdvertCallback_t *advertCallback, void * cookie);
 
-uint8_t shtp_chanNo(unsigned unit, const char * appName, const char * chanName);
+uint8_t shtp_chanNo(const char * appName, const char * chanName);
 
-int shtp_send(unsigned unit, uint8_t channel, uint8_t *payload, uint16_t len);
+int shtp_send(uint8_t channel, uint8_t *payload, uint16_t len);
 
 #ifdef __cplusplus
 }    // end of extern "C"

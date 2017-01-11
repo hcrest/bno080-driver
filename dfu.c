@@ -35,9 +35,9 @@
 
 // --- Forward Declarations -----------------------------------------------
 
-static int sendAppSize(unsigned unit, uint32_t appSize);
-static int sendPktSize(unsigned unit, uint8_t packetLen);
-static int sendPkt(unsigned unit, uint8_t* pData, uint32_t len);
+static int sendAppSize(uint32_t appSize);
+static int sendPktSize(uint8_t packetLen);
+static int sendPkt(uint8_t* pData, uint32_t len);
 
 // --- Private Data -------------------------------------------------------
 
@@ -46,7 +46,7 @@ uint32_t numRetries;
 
 // --- Public API ---------------------------------------------------------
 
-int dfu(unsigned unit, const HcBin_t *firmware)
+int dfu(const HcBin_t *firmware)
 {
 	int rc;
 	int status = SH2_OK;
@@ -106,19 +106,19 @@ int dfu(unsigned unit, const HcBin_t *firmware)
 	// Initiate DFU process
 
     // Reset part into DFU mode
-    status = sh2_hal_reset(unit, true, 0, 0);
+    status = sh2_hal_reset(true, 0, 0);
     if (status != SH2_OK) {
         goto close_and_return;
     }
 
     // Send app size
-    status = sendAppSize(unit, appLen);
+    status = sendAppSize(appLen);
     if (status != SH2_OK) {
         goto close_and_return;
     }
 
     // Send packet size
-    status = sendPktSize(unit, packetLen);
+    status = sendPktSize(packetLen);
     if (status != SH2_OK) {
         goto close_and_return;
     }
@@ -138,7 +138,7 @@ int dfu(unsigned unit, const HcBin_t *firmware)
         }
         
         // Send this packet's contents
-        status = sendPkt(unit, dfuBuff, toSend);
+        status = sendPkt(dfuBuff, toSend);
         if (status != SH2_OK) {
             goto close_and_return;
         }
@@ -192,7 +192,7 @@ static void appendCrc(uint8_t *packet, uint8_t len)
 }
 
 // I/O Utility functions
-static int dfuSend(unsigned unit, uint8_t* pData, uint32_t len)
+static int dfuSend(uint8_t* pData, uint32_t len)
 {
     unsigned retries = 0;
     int status = SH2_OK;
@@ -200,10 +200,10 @@ static int dfuSend(unsigned unit, uint8_t* pData, uint32_t len)
 
     while (retries < DFU_MAX_ATTEMPTS) {
         // Do write
-        status = sh2_hal_tx(unit, pData, len);
+        status = sh2_hal_tx(pData, len);
         if (status == SH2_OK) {
             // Read ack
-            status = sh2_hal_rx(unit, &ack, 1);
+            status = sh2_hal_rx(&ack, 1);
             if (status == SH2_OK) {
                 if (ack == ACK) {
                     // Everything went fine, break out of retry cycle
@@ -223,27 +223,27 @@ static int dfuSend(unsigned unit, uint8_t* pData, uint32_t len)
     return status;
 }
 
-static int sendAppSize(unsigned unit, uint32_t appSize)
+static int sendAppSize(uint32_t appSize)
 {
 	write32be(dfuBuff, appSize);
 	appendCrc(dfuBuff, 4);
 
-    return dfuSend(unit, dfuBuff, 6);
+    return dfuSend(dfuBuff, 6);
 }
 
-static int sendPktSize(unsigned unit, uint8_t packetLen)
+static int sendPktSize(uint8_t packetLen)
 {
     dfuBuff[0] = packetLen;
 	appendCrc(dfuBuff, 1);
     
-    return dfuSend(unit, dfuBuff, 3);
+    return dfuSend(dfuBuff, 3);
 }
 
-static int sendPkt(unsigned unit, uint8_t* pData, uint32_t len)
+static int sendPkt(uint8_t* pData, uint32_t len)
 {
     memcpy(dfuBuff, pData, len);
     appendCrc(dfuBuff, len);
     
-    return dfuSend(unit, dfuBuff, len+2);  // plus 2 for CRC
+    return dfuSend(dfuBuff, len+2);  // plus 2 for CRC
 }
 

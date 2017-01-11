@@ -35,10 +35,6 @@
 #error SH2_HAL_MAX_TRANSFER must be defined by sh2_hal_impl.h
 #endif
 
-#ifndef SH2_UNITS
-#error SH2_UNITS must be defined by sh2_hal_impl.h
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -51,16 +47,15 @@ extern "C" {
     // Reset an SH-2 module (into DFU mode, if flag is true)
     // The onRx callback function is registered with the HAL at the same time.
     // sh2_hal_reset() MUST be called at least once before sh2_tx or sh2_rx are used.
-    int sh2_hal_reset(unsigned unit,
-                       bool dfuMode,
-                       sh2_rxCallback_t *onRx,
-                       void *cookie);
+    int sh2_hal_reset(bool dfuMode,
+                      sh2_rxCallback_t *onRx,
+                      void *cookie);
 
     // Send data to SH-2.
     // Call may return without blocking before transfer is complete.
-    int sh2_hal_tx(unsigned unit, uint8_t *pData, uint32_t len);
+    int sh2_hal_tx(uint8_t *pData, uint32_t len);
 
-    // Read len bytes from SH-2 unit into pData.
+    // Read len bytes from device into pData.
     // Blocks until transfer is complete.
     // This function is necessary when INTN does not generate
     // read operations.  e.g. for DFU support.
@@ -68,12 +63,12 @@ extern "C" {
     // (In normal operation, the HAL will respond to INTN by
     // automatically reading the device.  The data produced will be
     // delivered to the client via the onRx callback)
-    int sh2_hal_rx(unsigned unit, uint8_t *pData, uint32_t len);
+    int sh2_hal_rx(uint8_t *pData, uint32_t len);
 
     // Block the calling thread until unblock occurs.
     // (If tx, rx are implemented in a blocking fashion, these should be no-operations.)
-    int sh2_hal_block(unsigned unit);
-    int sh2_hal_unblock(unsigned unit);
+    int sh2_hal_block(void);
+    int sh2_hal_unblock(void);
 
 #ifdef __cplusplus
 }    // end of extern "C"

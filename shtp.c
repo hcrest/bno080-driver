@@ -91,7 +91,6 @@ typedef struct shtp_ChanListener_s {
 #define ADVERT_IDLE (2)
 
 typedef struct shtp_s {
-    unsigned unit;
     char shtpVersion[8];
 
     uint8_t advertPhase;
@@ -132,130 +131,116 @@ typedef struct shtp_s {
 // Forward definitions
 
 static void shtp_onRx(void* cookie, uint8_t* pdata, uint32_t len, uint32_t t_us);
-static void addApp(shtp_t *pShtp, uint32_t guid, const char *appName);
-static void addChannel(shtp_t *pShtp, uint8_t chanNo, uint32_t guid, const char * chanName, bool wake);
+static void addApp(uint32_t guid, const char *appName);
+static void addChannel(uint8_t chanNo, uint32_t guid, const char * chanName, bool wake);
 static void shtpAdvertHdlr(void *shtp, uint8_t tag, uint8_t len, uint8_t *val);
 static void shtpCmdListener(void *shtp, uint8_t *payload, uint16_t len, uint32_t timestamp);
-static void addAdvertListener(shtp_t *pShtp, const char *appName,
+static void addAdvertListener(const char *appName,
                               shtp_AdvertCallback_t *callback, void * cookie);
-static int addChanListener(shtp_t *pShtp, const char * appName, const char * chanName,
+static int addChanListener(const char * appName, const char * chanName,
                            shtp_Callback_t *callback, void *cookie);
-static int toChanNo(shtp_t *pShtp, const char * appName, const char *chanName);
-static int txProcess(shtp_t* pShtp, uint8_t chan, uint8_t* pData, uint32_t len);
+static int toChanNo(const char * appName, const char *chanName);
+static int txProcess(uint8_t chan, uint8_t* pData, uint32_t len);
 
 // ------------------------------------------------------------------------
 // Private, static data
 
-static shtp_t shtp[SH2_UNITS];
+static shtp_t shtp;
 
 static uint8_t advertise[] = {
     CMD_ADVERTISE,
     CMD_ADVERTISE_ALL
 };
 
-static uint32_t onRxBadUnit = 0;
-
 // ------------------------------------------------------------------------
 // Public API
 
-int shtp_init(unsigned unit)
+int shtp_init(void)
 {
-    shtp_t *pShtp = &shtp[unit];
-    if (unit >= ARRAY_LEN(shtp)) {
-        return SH2_ERR_BAD_PARAM;
-    }
-
-    pShtp->unit = unit;
-
     // Reset device for SH2 operation, registering rx callback
-    sh2_hal_reset(unit, false, shtp_onRx, (void*)unit);
+    sh2_hal_reset(false, shtp_onRx, NULL);
 
     // Init stats
-    pShtp->tooLargePayloads = 0;
-    pShtp->txDiscards = 0;
-    pShtp->shortFragments = 0;
+    shtp.tooLargePayloads = 0;
+    shtp.txDiscards = 0;
+    shtp.shortFragments = 0;
 
     // Init transmit support
-    pShtp->outMaxPayload = SHTP_MAX_PAYLOAD_OUT;
-    pShtp->outMaxTransfer = INIT_MAX_TRANSFER_OUT;
+    shtp.outMaxPayload = SHTP_MAX_PAYLOAD_OUT;
+    shtp.outMaxTransfer = INIT_MAX_TRANSFER_OUT;
 
     // Init receive support
-    pShtp->inMaxTransfer = SHTP_MAX_TRANSFER_IN;
-    pShtp->inRemaining = 0;
-    pShtp->inCursor = 0;
+    shtp.inMaxTransfer = SHTP_MAX_TRANSFER_IN;
+    shtp.inRemaining = 0;
+    shtp.inCursor = 0;
 
     // Init SHTP Apps
     for (unsigned n = 0; n < SH2_MAX_APPS; n++) {
-        pShtp->app[n].guid = 0xFFFFFFFF;
-        strcpy(pShtp->app[n].appName, "");
+        shtp.app[n].guid = 0xFFFFFFFF;
+        strcpy(shtp.app[n].appName, "");
     }
-    pShtp->nextApp = 0;
-    pShtp->advertPhase = ADVERT_NEEDED;
+    shtp.nextApp = 0;
+    shtp.advertPhase = ADVERT_NEEDED;
 
     // Init App Listeners
     for (unsigned n = 0; n < SH2_MAX_APPS; n++) {
-        strcpy(pShtp->appListener[n].appName, "");
-        pShtp->appListener[n].callback = 0;
-        pShtp->appListener[n].cookie = 0;
+        strcpy(shtp.appListener[n].appName, "");
+        shtp.appListener[n].callback = 0;
+        shtp.appListener[n].cookie = 0;
     }
-    pShtp->nextAppListener = 0;
+    shtp.nextAppListener = 0;
 
     // Init the shtp channels
     for (unsigned n = 0; n < SH2_MAX_CHANS; n++) {
-        pShtp->chan[n].nextOutSeq = 0;
-        pShtp->chan[n].nextInSeq = 0;
-        pShtp->chan[n].guid = 0xFFFFFFFF;
-        strcpy(pShtp->chan[n].chanName, "");
-        pShtp->chan[n].cookie = 0;
-        pShtp->chan[n].callback = 0;
-        pShtp->chan[n].wake = false;
+        shtp.chan[n].nextOutSeq = 0;
+        shtp.chan[n].nextInSeq = 0;
+        shtp.chan[n].guid = 0xFFFFFFFF;
+        strcpy(shtp.chan[n].chanName, "");
+        shtp.chan[n].cookie = 0;
+        shtp.chan[n].callback = 0;
+        shtp.chan[n].wake = false;
     }
 
     // Init registered channel listeners array
     for (unsigned n = 0; n < SH2_MAX_CHANS; n++) {
-        strcpy(pShtp->chanListener[n].appName, "");
-        strcpy(pShtp->chanListener[n].chanName, "");
-        pShtp->chanListener[n].cookie = 0;
-        pShtp->chanListener[n].callback = 0;
+        strcpy(shtp.chanListener[n].appName, "");
+        strcpy(shtp.chanListener[n].chanName, "");
+        shtp.chanListener[n].cookie = 0;
+        shtp.chanListener[n].callback = 0;
     }
-    pShtp->nextChanListener = 0;
+    shtp.nextChanListener = 0;
 
     // Establish SHTP App and command channel a priori.
-    addApp(pShtp, GUID_SHTP, "SHTP");
-    addChannel(pShtp, 0, GUID_SHTP, "command", false);
+    addApp(GUID_SHTP, "SHTP");
+    addChannel(0, GUID_SHTP, "command", false);
 
     // Create the control channel for this SHTP instance
     // Register advert listener for SHTP App
-    shtp_listenAdvert(unit, "SHTP", shtpAdvertHdlr, (void *)unit);
-    shtp_listenChan(unit, "SHTP", "command", shtpCmdListener, (void *)unit);
+    shtp_listenAdvert("SHTP", shtpAdvertHdlr, NULL);
+    shtp_listenChan("SHTP", "command", shtpCmdListener, NULL);
 
     return SH2_OK;
 }
 
 // Register a listener for advertisements related to one app
-int shtp_listenAdvert(unsigned unit, const char * appName, 
+int shtp_listenAdvert(const char * appName, 
                       shtp_AdvertCallback_t *callback, void *cookie)
 {
     int rc = SH2_OK;
     
-    shtp_t *pShtp = &shtp[unit];
-    if (unit >= ARRAY_LEN(shtp)) {
-        return SH2_ERR_BAD_PARAM;
-    }
-
     // Register the advert listener
-    addAdvertListener(pShtp, appName, callback, cookie);
+    addAdvertListener(appName, callback, cookie);
 
     // Arrange for a new set of advertisements, for this listener
-    if (pShtp->advertPhase == ADVERT_IDLE) {
+    if (shtp.advertPhase == ADVERT_IDLE) {
         // Request advertisement if one is not already on the way
-        rc = shtp_send(unit, SHTP_CHAN_COMMAND, advertise, sizeof(advertise));
+        rc = shtp_send(SHTP_CHAN_COMMAND, advertise, sizeof(advertise));
 
         if (rc == SH2_OK) {
-            pShtp->advertPhase = ADVERT_REQUESTED;
+            shtp.advertPhase = ADVERT_REQUESTED;
         }
         else {
-            pShtp->advertPhase = ADVERT_NEEDED;
+            shtp.advertPhase = ADVERT_NEEDED;
         }
     }
 
@@ -263,49 +248,34 @@ int shtp_listenAdvert(unsigned unit, const char * appName,
 }
 
 
-int shtp_listenChan(unsigned unit, const char *app, const char *chan,
+int shtp_listenChan(const char *app, const char *chan,
                     shtp_Callback_t *callback, void *cookie)
 {
-    shtp_t *pShtp = &shtp[unit];
-    if (unit >= ARRAY_LEN(shtp)) {
-        return SH2_ERR_BAD_PARAM;
-    }
-
     // Balk if app or channel name isn't valid
     if ((app == 0) || (strlen(app) == 0)) return SH2_ERR_BAD_PARAM;
     if ((chan == 0) || (strlen(chan) == 0)) return SH2_ERR_BAD_PARAM;
 
-    return addChanListener(pShtp, app, chan, callback, cookie);
+    return addChanListener(app, chan, callback, cookie);
 }
 
-uint8_t shtp_chanNo(unsigned unit, const char * appName, const char * chanName)
+uint8_t shtp_chanNo(const char * appName, const char * chanName)
 {
     uint8_t chanNo = 0xFF;
     
-    shtp_t *pShtp = &shtp[unit];
-    if (unit >= ARRAY_LEN(shtp)) {
-        return 0xFF;
-    }
-    
-    chanNo = toChanNo(pShtp, appName, chanName);
+    chanNo = toChanNo(appName, chanName);
 
     return chanNo;
 }
 
-int shtp_send(unsigned unit, uint8_t chan, uint8_t *payload, uint16_t len)
+int shtp_send(uint8_t chan, uint8_t *payload, uint16_t len)
 {
     int ret = SH2_OK;
-    shtp_t *pShtp = &shtp[unit];
-    if (unit >= ARRAY_LEN(shtp)) {
-        return SH2_ERR_BAD_PARAM;
-    }
-        
     
-    if (len > pShtp->outMaxPayload) {
+    if (len > shtp.outMaxPayload) {
         return SH2_ERR_BAD_PARAM;
     }
     
-    ret = txProcess(pShtp, chan, payload, len);
+    ret = txProcess(chan, payload, len);
 
     return ret;
 }
@@ -313,7 +283,7 @@ int shtp_send(unsigned unit, uint8_t chan, uint8_t *payload, uint16_t len)
 // ------------------------------------------------------------------------
 // Private methods
 
-static void rxAssemble(shtp_t *pShtp, uint8_t *in, uint16_t len, uint32_t t_us)
+static void rxAssemble(uint8_t *in, uint16_t len, uint32_t t_us)
 {
     uint16_t payloadLen;
     bool continuation;
@@ -322,7 +292,7 @@ static void rxAssemble(shtp_t *pShtp, uint8_t *in, uint16_t len, uint32_t t_us)
 
     // discard invalid short fragments
     if (len < SHTP_HDR_LEN) {
-        pShtp->shortFragments++;
+        shtp.shortFragments++;
         return;
     }
     
@@ -333,22 +303,22 @@ static void rxAssemble(shtp_t *pShtp, uint8_t *in, uint16_t len, uint32_t t_us)
     seq = in[3];
     
     if (payloadLen < SHTP_HDR_LEN) {
-      pShtp->shortFragments++;
+      shtp.shortFragments++;
       return;
     }
         
     // Discard earlier assembly in progress if the received data doesn't match it.
-    if (pShtp->inRemaining) {
+    if (shtp.inRemaining) {
         // Check this against previously received data.
         if (!continuation ||
-            (chan != pShtp->inChan) ||
-            (seq != pShtp->chan[chan].nextInSeq)) {
+            (chan != shtp.inChan) ||
+            (seq != shtp.chan[chan].nextInSeq)) {
             // This fragment doesn't fit with previous one, discard earlier data
-            pShtp->inRemaining = 0;
+            shtp.inRemaining = 0;
         }
     }
 
-    if (pShtp->inRemaining == 0) {
+    if (shtp.inRemaining == 0) {
         // Discard this fragment if it's a continuation of something we don't have.
         if (continuation) {
             return;
@@ -356,18 +326,18 @@ static void rxAssemble(shtp_t *pShtp, uint8_t *in, uint16_t len, uint32_t t_us)
 
         if (payloadLen-SHTP_HDR_LEN > SHTP_MAX_PAYLOAD_IN) {
             // Error: This payload won't fit! Discard it.
-            pShtp->tooLargePayloads++;
+            shtp.tooLargePayloads++;
             return;
         }
 
         // This represents a new payload
 
         // Store timestamp
-        pShtp->inTimestamp = t_us;
+        shtp.inTimestamp = t_us;
 
         // Start a new assembly.
-        pShtp->inCursor = 0;
-        pShtp->inChan = chan;
+        shtp.inCursor = 0;
+        shtp.inChan = chan;
     }
 
     // Append the new fragment to the payload under construction.
@@ -375,42 +345,34 @@ static void rxAssemble(shtp_t *pShtp, uint8_t *in, uint16_t len, uint32_t t_us)
         // Only use the valid portion of the transfer
         len = payloadLen;
     }
-    memcpy(pShtp->inPayload + pShtp->inCursor, in+SHTP_HDR_LEN, len-SHTP_HDR_LEN);
-    pShtp->inCursor += len-SHTP_HDR_LEN;
-    pShtp->inRemaining = payloadLen - len;
+    memcpy(shtp.inPayload + shtp.inCursor, in+SHTP_HDR_LEN, len-SHTP_HDR_LEN);
+    shtp.inCursor += len-SHTP_HDR_LEN;
+    shtp.inRemaining = payloadLen - len;
 
     // If whole payload received, deliver it to channel listener.
-    if (pShtp->inRemaining == 0) {
+    if (shtp.inRemaining == 0) {
         
         // Call callback if there is one.
-        if (pShtp->chan[chan].callback != 0) {
-            pShtp->chan[chan].callback(pShtp->chan[chan].cookie,
-                                       pShtp->inPayload, pShtp->inCursor,
-                                       pShtp->inTimestamp);
+        if (shtp.chan[chan].callback != 0) {
+            shtp.chan[chan].callback(shtp.chan[chan].cookie,
+                                       shtp.inPayload, shtp.inCursor,
+                                       shtp.inTimestamp);
         }
     }
 
     // Remember next sequence number we expect for this channel.
-    pShtp->chan[chan].nextInSeq = seq + 1;
+    shtp.chan[chan].nextInSeq = seq + 1;
 }
 
 static void shtp_onRx(void* cookie, uint8_t* pData, uint32_t len, uint32_t t_us)
 {
-    unsigned unit = (unsigned)cookie;
-    shtp_t* pShtp = &shtp[unit];
-
-    if (unit >= ARRAY_LEN(shtp)) {
-        onRxBadUnit++;
-        return;
-    }
-
-    rxAssemble(pShtp, pData, len, t_us);
+    rxAssemble(pData, len, t_us);
 }
 
 // Try to match registered listeners with their channels.
 // This is performed every time the underlying Channel, App, Listener data structures are updated.
 // As a result, channel number to callback association is fast when receiving packets
-static void updateCallbacks(shtp_t *pShtp)
+static void updateCallbacks(void)
 {
     // Figure out which callback is associated with each channel.
     //   Channel -> (GUID, Chan name).
@@ -423,22 +385,22 @@ static void updateCallbacks(shtp_t *pShtp)
     
     for (int chanNo = 0; chanNo < SH2_MAX_CHANS; chanNo++) {
         // Reset callback for this channel until we find the right one.
-        pShtp->chan[chanNo].callback = 0;
+        shtp.chan[chanNo].callback = 0;
             
-        if (pShtp->chan[chanNo].guid == 0xFFFFFFFF) {
+        if (shtp.chan[chanNo].guid == 0xFFFFFFFF) {
             // This channel entry not used.
             continue;
         }
 
         // Get GUID and Channel Name for this channel
-        guid = pShtp->chan[chanNo].guid;
-        chanName = pShtp->chan[chanNo].chanName;
+        guid = shtp.chan[chanNo].guid;
+        chanName = shtp.chan[chanNo].chanName;
 
         // Look up App name for this GUID
         appName = 0;
         for (int appNo = 0; appNo < SH2_MAX_APPS; appNo++) {
-            if (pShtp->app[appNo].guid == guid) {
-                appName = pShtp->app[appNo].appName;
+            if (shtp.app[appNo].guid == guid) {
+                appName = shtp.app[appNo].appName;
                 break;
             }
         }
@@ -448,13 +410,13 @@ static void updateCallbacks(shtp_t *pShtp)
         else {
             // Look for a listener registered with this app name, channel name
             for (int listenerNo = 0; listenerNo < SH2_MAX_CHANS; listenerNo++) {
-                if ((pShtp->chanListener[listenerNo].callback != 0) &&
-                    (strcmp(appName, pShtp->chanListener[listenerNo].appName) == 0) &&
-                    (strcmp(chanName, pShtp->chanListener[listenerNo].chanName) == 0)) {
+                if ((shtp.chanListener[listenerNo].callback != 0) &&
+                    (strcmp(appName, shtp.chanListener[listenerNo].appName) == 0) &&
+                    (strcmp(chanName, shtp.chanListener[listenerNo].chanName) == 0)) {
                     
                     // This listener is the one for this channel
-                    pShtp->chan[chanNo].callback = pShtp->chanListener[listenerNo].callback;
-                    pShtp->chan[chanNo].cookie = pShtp->chanListener[listenerNo].cookie;
+                    shtp.chan[chanNo].callback = shtp.chanListener[listenerNo].callback;
+                    shtp.chan[chanNo].cookie = shtp.chanListener[listenerNo].cookie;
                     break;
                 }
             }
@@ -463,34 +425,34 @@ static void updateCallbacks(shtp_t *pShtp)
 }
 
 // Add one to the set of known Apps
-static void addApp(shtp_t *pShtp, uint32_t guid, const char *appName)
+static void addApp(uint32_t guid, const char *appName)
 {
     shtp_App_t *pApp = 0;
 
     // Bail out if this GUID is already registered
-    for (int n = 0; n < pShtp->nextApp; n++) {
-        if (pShtp->app[n].guid == guid) return;
+    for (int n = 0; n < shtp.nextApp; n++) {
+        if (shtp.app[n].guid == guid) return;
     }
 
     // Bail out if no space for more apps
-    if (pShtp->nextApp >= SH2_MAX_APPS) return;
+    if (shtp.nextApp >= SH2_MAX_APPS) return;
 
     // Register this app
-    pApp = &pShtp->app[pShtp->nextApp];
-    pShtp->nextApp++;
+    pApp = &shtp.app[shtp.nextApp];
+    shtp.nextApp++;
     pApp->guid = guid;
     strcpy(pApp->appName, appName);
 
     // Re-evaluate channel callbacks
-    updateCallbacks(pShtp);
+    updateCallbacks();
 }
 
 // Add one to the set of known channels
-static void addChannel(shtp_t *pShtp, uint8_t chanNo, uint32_t guid, const char * chanName, bool wake)
+static void addChannel(uint8_t chanNo, uint32_t guid, const char * chanName, bool wake)
 {
     if (chanNo >= SH2_MAX_CHANS) return;
 
-    shtp_Channel_t * pChan = &pShtp->chan[chanNo];
+    shtp_Channel_t * pChan = &shtp.chan[chanNo];
 
     // Store channel definition
     pChan->guid = guid;
@@ -504,22 +466,20 @@ static void addChannel(shtp_t *pShtp, uint8_t chanNo, uint32_t guid, const char 
     pChan->cookie = 0;
 
     // Re-evaluate channel callbacks
-    updateCallbacks(pShtp);
+    updateCallbacks();
 }
 
 
 // Callback for SHTP app-specific advertisement tags
 static void shtpAdvertHdlr(void *cookie, uint8_t tag, uint8_t len, uint8_t *val)
 {
-    unsigned unit = (unsigned)cookie;
-    shtp_t *pShtp = &shtp[unit];
     uint16_t x;
 
     switch (tag) {
         case TAG_MAX_CARGO_PLUS_HEADER_WRITE:
             x = readu16(val) - SHTP_HDR_LEN;
             if (x < SHTP_MAX_PAYLOAD_OUT) {
-                pShtp->outMaxPayload = x;
+                shtp.outMaxPayload = x;
             }
             break;
         case TAG_MAX_CARGO_PLUS_HEADER_READ:
@@ -529,20 +489,20 @@ static void shtpAdvertHdlr(void *cookie, uint8_t tag, uint8_t len, uint8_t *val)
         case TAG_MAX_TRANSFER_WRITE:
             x = readu16(val) - SHTP_HDR_LEN;
             if (x < SHTP_MAX_TRANSFER_OUT) {
-                pShtp->outMaxTransfer = x;
+                shtp.outMaxTransfer = x;
             } else {
-                pShtp->outMaxTransfer = SHTP_MAX_TRANSFER_OUT;
+                shtp.outMaxTransfer = SHTP_MAX_TRANSFER_OUT;
             }
             break;
         case TAG_MAX_TRANSFER_READ:
             x = readu16(val) - SHTP_HDR_LEN;
             if (x < SHTP_MAX_TRANSFER_IN) {
-                pShtp->inMaxTransfer = x;
+                shtp.inMaxTransfer = x;
             }
             break;
         case TAG_SHTP_VERSION:
-            if (strlen((const char *)val) < sizeof(pShtp->shtpVersion)) {
-                strcpy(pShtp->shtpVersion, (const char *)val);
+            if (strlen((const char *)val) < sizeof(shtp.shtpVersion)) {
+                strcpy(shtp.shtpVersion, (const char *)val);
             }
             break;
         default:
@@ -550,14 +510,14 @@ static void shtpAdvertHdlr(void *cookie, uint8_t tag, uint8_t len, uint8_t *val)
     }
 }
 
-static void callAdvertHandler(shtp_t *pShtp, uint32_t guid,
+static void callAdvertHandler(uint32_t guid,
                               uint8_t tag, uint8_t len, uint8_t *val)
 {
     // Find app name for this GUID
     const char * appName = 0;
     for (int n = 0; n < SH2_MAX_APPS; n++) {
-        if (pShtp->app[n].guid == guid) {
-            appName = pShtp->app[n].appName;
+        if (shtp.app[n].guid == guid) {
+            appName = shtp.app[n].appName;
             break;
         }
     }
@@ -569,17 +529,17 @@ static void callAdvertHandler(shtp_t *pShtp, uint32_t guid,
     // Find listener for this app
     for (int n = 0; n < SH2_MAX_APPS; n++)
     {
-        if (strcmp(pShtp->appListener[n].appName, appName) == 0) {
+        if (strcmp(shtp.appListener[n].appName, appName) == 0) {
             // Found matching App entry
-            if (pShtp->appListener[n].callback != 0) {
-                pShtp->appListener[n].callback(pShtp->appListener[n].cookie, tag, len, val);
+            if (shtp.appListener[n].callback != 0) {
+                shtp.appListener[n].callback(shtp.appListener[n].cookie, tag, len, val);
                 return;
             }
         }
     }
 }
 
-static void processAdvertisement(shtp_t *pShtp, uint8_t *payload, uint16_t payloadLen)
+static void processAdvertisement(uint8_t *payload, uint16_t payloadLen)
 {
     uint8_t tag;
     uint8_t len;
@@ -594,7 +554,7 @@ static void processAdvertisement(shtp_t *pShtp, uint8_t *payload, uint16_t paylo
     strcpy(appName, "");
     strcpy(chanName, "");
 
-    pShtp->advertPhase = ADVERT_IDLE;
+    shtp.advertPhase = ADVERT_IDLE;
         
     while (cursor < payloadLen) {
         tag = payload[cursor++];
@@ -609,7 +569,7 @@ static void processAdvertisement(shtp_t *pShtp, uint8_t *payload, uint16_t paylo
                 break;
             case TAG_GUID:
                 // A new GUID is being established so terminate advertisement process with earlier app, if any.
-                callAdvertHandler(pShtp, guid, TAG_NULL, 0, 0);
+                callAdvertHandler(guid, TAG_NULL, 0, 0);
             
                 guid = readu32(val);
                 strcpy(appName, "");
@@ -625,22 +585,22 @@ static void processAdvertisement(shtp_t *pShtp, uint8_t *payload, uint16_t paylo
                 break;
             case TAG_APP_NAME:
                 strcpy(appName, (const char *)val);
-                addApp(pShtp, guid, appName);
+                addApp(guid, appName);
 
                 // Now that we potentially have a link between current guid and a
                 // registered app, start the advertisement process with the app.
-                callAdvertHandler(pShtp, guid, TAG_GUID, 4, (uint8_t *)&guid);
+                callAdvertHandler(guid, TAG_GUID, 4, (uint8_t *)&guid);
             
                 break;
             case TAG_CHANNEL_NAME:
                 strcpy(chanName, (const char *)val);
-                addChannel(pShtp, chanNo, guid, (const char *)val, wake);
+                addChannel(chanNo, guid, (const char *)val, wake);
 
                 // Store channel metadata
                 if (chanNo < SH2_MAX_CHANS) {
-                    pShtp->chan[chanNo].guid = guid;
-                    strcpy(pShtp->chan[chanNo].chanName, chanName);
-                    pShtp->chan[chanNo].wake = wake;
+                    shtp.chan[chanNo].guid = guid;
+                    strcpy(shtp.chan[chanNo].chanName, chanName);
+                    shtp.chan[chanNo].wake = wake;
                 }
                 break;
             case TAG_ADV_COUNT:
@@ -652,26 +612,23 @@ static void processAdvertisement(shtp_t *pShtp, uint8_t *payload, uint16_t paylo
         }
         
         // Deliver a TLV entry to the app's handler
-        callAdvertHandler(pShtp, guid, tag, len, val);
+        callAdvertHandler(guid, tag, len, val);
     }
 
     // terminate advertisement process with last app
-    callAdvertHandler(pShtp, guid, TAG_NULL, 0, 0);
+    callAdvertHandler(guid, TAG_NULL, 0, 0);
 }
 
 // Callback for SHTP command channel
 static void shtpCmdListener(void *cookie, uint8_t *payload, uint16_t len, uint32_t timestamp)
 {
-    unsigned unit = (unsigned)cookie;
-    shtp_t *pShtp = &shtp[unit];
-    
     if ((payload == 0) || (len == 0)) return;
     
     uint8_t response = payload[0];
 
     switch (response) {
         case RESP_ADVERTISE:
-            processAdvertisement(pShtp, payload, len);
+            processAdvertisement(payload, len);
             break;
         default:
             // unknown response
@@ -680,62 +637,62 @@ static void shtpCmdListener(void *cookie, uint8_t *payload, uint16_t len, uint32
 }
 
 // Register a listener for an app (advertisement listener)
-static void addAdvertListener(shtp_t *pShtp, const char *appName,
+static void addAdvertListener(const char *appName,
                               shtp_AdvertCallback_t *callback, void * cookie)
 {
     shtp_AppListener_t *pAppListener = 0;
 
     // Bail out if no space for more apps
-    if (pShtp->nextAppListener >= SH2_MAX_APPS) return;
+    if (shtp.nextAppListener >= SH2_MAX_APPS) return;
 
     // Register this app
-    pAppListener = &pShtp->appListener[pShtp->nextAppListener];
-    pShtp->nextAppListener++;
+    pAppListener = &shtp.appListener[shtp.nextAppListener];
+    shtp.nextAppListener++;
     strcpy(pAppListener->appName, appName);
     pAppListener->callback = callback;
     pAppListener->cookie = cookie;
 }
 
 // Register a new channel listener
-static int addChanListener(shtp_t *pShtp, const char * appName, const char * chanName,
+static int addChanListener(const char * appName, const char * chanName,
                            shtp_Callback_t *callback, void *cookie)
 {
     shtp_ChanListener_t *pListener = 0;
 
     // Bail out if there are too many listeners registered
-    if (pShtp->nextChanListener >= SH2_MAX_CHANS) return SH2_ERR;
+    if (shtp.nextChanListener >= SH2_MAX_CHANS) return SH2_ERR;
 
     // Register channel listener
-    pListener = &pShtp->chanListener[pShtp->nextChanListener];
-    pShtp->nextChanListener++;
+    pListener = &shtp.chanListener[shtp.nextChanListener];
+    shtp.nextChanListener++;
     strcpy(pListener->appName, appName);
     strcpy(pListener->chanName, chanName);
     pListener->callback = callback;
     pListener->cookie = cookie;
 
     // re-evaluate channel callbacks
-    updateCallbacks(pShtp);
+    updateCallbacks();
 
     return SH2_OK;
 }
 
-static int toChanNo(shtp_t *pShtp, const char * appName, const char *chanName)
+static int toChanNo(const char * appName, const char *chanName)
 {
     int chan = 0;
     uint32_t guid = 0xFFFFFFFF;
 
     // Determine GUID for this appname
     for (int n = 0; n < SH2_MAX_APPS; n++) {
-        if (strcmp(pShtp->app[n].appName, appName) == 0) {
-            guid = pShtp->app[n].guid;
+        if (strcmp(shtp.app[n].appName, appName) == 0) {
+            guid = shtp.app[n].guid;
             break;
         }
     }
     if (guid == 0xFFFFFFFF) return -1;
 
     for (chan = 0; chan < SH2_MAX_CHANS; chan++) {
-        if ((strcmp(pShtp->chan[chan].chanName, chanName) == 0) &&
-            pShtp->chan[chan].guid == guid) {
+        if ((strcmp(shtp.chan[chan].chanName, chanName) == 0) &&
+            shtp.chan[chan].guid == guid) {
             // Found match
             return chan;
         }
@@ -756,7 +713,7 @@ static inline uint16_t min(uint16_t a, uint16_t b)
 }
 
 // Send a cargo as a sequence of transports
-static int txProcess(shtp_t* pShtp, uint8_t chan, uint8_t* pData, uint32_t len)
+static int txProcess(uint8_t chan, uint8_t* pData, uint32_t len)
 {
     int status = SH2_OK;
     
@@ -766,10 +723,10 @@ static int txProcess(shtp_t* pShtp, uint8_t chan, uint8_t* pData, uint32_t len)
 
     while (remaining > 0) {
         // determine length of this transfer
-        len = min(remaining, pShtp->outMaxTransfer);
+        len = min(remaining, shtp.outMaxTransfer);
 
         // Stage one tranfer in the out buffer
-        memcpy(pShtp->outTransfer+SHTP_HDR_LEN, pData+cursor, len);
+        memcpy(shtp.outTransfer+SHTP_HDR_LEN, pData+cursor, len);
         remaining -= len;
         cursor += len;
 
@@ -777,19 +734,19 @@ static int txProcess(shtp_t* pShtp, uint8_t chan, uint8_t* pData, uint32_t len)
         len += SHTP_HDR_LEN;
 
         // Put the header in the out buffer
-        pShtp->outTransfer[0] = len & 0xFF;
-        pShtp->outTransfer[1] = (len >> 8) & 0xFF;
+        shtp.outTransfer[0] = len & 0xFF;
+        shtp.outTransfer[1] = (len >> 8) & 0xFF;
         if (continuation) {
-            pShtp->outTransfer[1] |= 0x80;
+            shtp.outTransfer[1] |= 0x80;
         }
-        pShtp->outTransfer[2] = chan;
-        pShtp->outTransfer[3] = pShtp->chan[chan].nextOutSeq++;
+        shtp.outTransfer[2] = chan;
+        shtp.outTransfer[3] = shtp.chan[chan].nextOutSeq++;
 
         // Transmit
-        int status = sh2_hal_tx(pShtp->unit, pShtp->outTransfer, len);
+        int status = sh2_hal_tx(shtp.outTransfer, len);
         if (status != SH2_OK) {
             // Error, throw away this cargo
-            pShtp->txDiscards++;
+            shtp.txDiscards++;
             break;
         }
 

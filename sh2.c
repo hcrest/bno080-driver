@@ -52,9 +52,9 @@
 
 // --- Private Data Types -------------------------------------------------
 
-typedef int (sh2_OpStart_t)(unsigned unit);
-typedef void (sh2_OpTxDone_t)(unsigned unit);
-typedef void (sh2_OpRx_t)(unsigned unit, const uint8_t *payload, uint16_t len);
+typedef int (sh2_OpStart_t)(void);
+typedef void (sh2_OpTxDone_t)(void);
+typedef void (sh2_OpRx_t)(const uint8_t *payload, uint16_t len);
 
 typedef struct sh2_Op_s {
 	sh2_OpStart_t *start;
@@ -275,8 +275,6 @@ typedef __packed struct {
 } ForceFlushResp_t;
 
 typedef struct sh2_s {
-	unsigned unit;
-
 	uint8_t controlChan;
 
 	char version[MAX_VER_LEN+1];
@@ -371,8 +369,8 @@ typedef struct sh2_s {
 
 // --- Forward Declarations -----------------------------------------------
 static int16_t toQ14(double x);
-static void setupCmdParams(unsigned unit, uint8_t cmd, uint8_t p[9]);
-static void setupCmd1(unsigned unit, uint8_t cmd, uint8_t p0);
+static void setupCmdParams(uint8_t cmd, uint8_t p[9]);
+static void setupCmd1(uint8_t cmd, uint8_t p0);
 	
 static void executableAdvertHdlr(void *cookie, uint8_t tag, uint8_t len, uint8_t *val);
 static void executableDeviceHdlr(void *cookie, uint8_t *payload, uint16_t len, uint32_t timestamp);
@@ -383,121 +381,120 @@ static void sensorhubInputNormalHdlr(void *cookie, uint8_t *payload, uint16_t le
 static void sensorhubInputWakeHdlr(void *cookie, uint8_t *payload, uint16_t len, uint32_t timestamp);
 static void sensorhubInputGyroRvHdlr(void *cookie, uint8_t *payload, uint16_t len, uint32_t timestamp);
 
-static uint8_t getReportLen(sh2_t *pSh2, uint8_t reportId);
+static uint8_t getReportLen(uint8_t reportId);
 	
 // SH-2 transaction phases
-static int opStart(unsigned unit,
-                   const sh2_Op_t *pOp);
-static void opTxDone(unsigned unit);
-static void opRx(unsigned unit, const uint8_t *payload, uint16_t len);
-static int opCompleted(unsigned unit, int status);
+static int opStart(const sh2_Op_t *pOp);
+static void opTxDone(void);
+static void opRx(const uint8_t *payload, uint16_t len);
+static int opCompleted(int status);
 
 static uint64_t touSTimestamp(uint32_t hostInt, int32_t referenceDelta, uint16_t delay);
 
 // --- Private Data -------------------------------------------------------
-static sh2_t sh2[SH2_UNITS];
+static sh2_t sh2;
 
 // SH-2 Transaction handlers
 
 // Operation to Send a Command, No response
-static int sendCmdStart(unsigned unit);
-static void sendCmdTxDone(unsigned unit);
+static int sendCmdStart(void);
+static void sendCmdTxDone(void);
 const sh2_Op_t sendCmdOp = {
 	.start = sendCmdStart,
 	.txDone = sendCmdTxDone,
 };
 
 // Operation to get product id
-static int getProdIdStart(unsigned unit);
-static void getProdIdRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int getProdIdStart(void);
+static void getProdIdRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t getProdIdOp = {
 	.start = getProdIdStart,
 	.rx = getProdIdRx,
 };
 
 // getSensorConfig Operation
-static int getSensorConfigStart(unsigned unit);
-static void getSensorConfigRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int getSensorConfigStart(void);
+static void getSensorConfigRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t getSensorConfigOp = {
 	.start = getSensorConfigStart,
 	.rx = getSensorConfigRx,
 };
 
 // setSensorConfig Operation
-static int setSensorConfigStart(unsigned unit);
-static void setSensorConfigTxDone(unsigned unit);
+static int setSensorConfigStart(void);
+static void setSensorConfigTxDone(void);
 const sh2_Op_t setSensorConfigOp = {
 	.start = setSensorConfigStart,
 	.txDone = setSensorConfigTxDone,
 };
 
 // get FRS Operation
-static int getFrsStart(unsigned unit);
-static void getFrsRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int getFrsStart(void);
+static void getFrsRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t getFrsOp = {
 	.start = getFrsStart,
 	.rx = getFrsRx,
 };
 
 // set FRS Operation
-static int setFrsStart(unsigned unit);
-static void setFrsRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int setFrsStart(void);
+static void setFrsRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t setFrsOp = {
 	.start = setFrsStart,
 	.rx = setFrsRx,
 };
 
 // get errors operation
-static int getErrorsStart(unsigned unit);
-static void getErrorsRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int getErrorsStart(void);
+static void getErrorsRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t getErrorsOp = {
 	.start = getErrorsStart,
 	.rx = getErrorsRx,
 };
 
 // get counts operation
-static int getCountsStart(unsigned unit);
-static void getCountsRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int getCountsStart(void);
+static void getCountsRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t getCountsOp = {
 	.start = getCountsStart,
 	.rx = getCountsRx,
 };
 
 // reinitialize operation
-static int reinitStart(unsigned unit);
-static void reinitRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int reinitStart(void);
+static void reinitRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t reinitOp = {
 	.start = reinitStart,
 	.rx = reinitRx,
 };
 
 // save dcd now operation
-static int saveDcdNowStart(unsigned unit);
-static void saveDcdNowRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int saveDcdNowStart(void);
+static void saveDcdNowRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t saveDcdNowOp = {
 	.start = saveDcdNowStart,
 	.rx = saveDcdNowRx,
 };
 
 // cal config operation
-static int calConfigStart(unsigned unit);
-static void calConfigRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int calConfigStart(void);
+static void calConfigRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t calConfigOp = {
 	.start = calConfigStart,
 	.rx = calConfigRx,
 };
 
 // force flush operation
-static int forceFlushStart(unsigned unit);
-static void forceFlushRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int forceFlushStart(void);
+static void forceFlushRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t forceFlushOp = {
 	.start = forceFlushStart,
 	.rx = forceFlushRx,
 };
 
 // getOscType Operation
-static int getOscTypeStart(unsigned unit);
-static void getOscTypeRx(unsigned unit, const uint8_t *payload, uint16_t len);
+static int getOscTypeStart(void);
+static void getOscTypeRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t getOscTypeOp = {
 	.start = getOscTypeStart,
 	.rx = getOscTypeRx,
@@ -506,111 +503,79 @@ const sh2_Op_t getOscTypeOp = {
 // --- Public API ---------------------------------------------------------
 
 // sh2_init
-int sh2_initialize(unsigned unit, sh2_EventCallback_t *eventCallback, void *resetCookie)
+int sh2_initialize(sh2_EventCallback_t *eventCallback, void *resetCookie)
 {
-	sh2_t *pSh2 = &sh2[unit];
+	sh2.controlChan = 0xFF;  // An invalid value since we don't know yet.
 
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
+	sh2.emptyPayloads = 0;
+	sh2.unknownReportIds = 0;
 
-	pSh2->controlChan = 0xFF;  // An invalid value since we don't know yet.
-
-	pSh2->emptyPayloads = 0;
-	pSh2->unknownReportIds = 0;
-
-	pSh2->advertDone = false;
-	pSh2->gotInitResp = false;
-	pSh2->calledResetCallback = false;
+	sh2.advertDone = false;
+	sh2.gotInitResp = false;
+	sh2.calledResetCallback = false;
   
-	pSh2->eventCallback = eventCallback;
-	pSh2->eventCallbackCookie = resetCookie;
-	pSh2->sensorCallback = 0;
-	pSh2->sensorCallbackCookie = 0;
+	sh2.eventCallback = eventCallback;
+	sh2.eventCallbackCookie = resetCookie;
+	sh2.sensorCallback = 0;
+	sh2.sensorCallbackCookie = 0;
 
-	pSh2->pOp = 0;
-	pSh2->opEvent.unit = unit;
+	sh2.pOp = 0;
 	
 	for (int n = 0; n < SH2_MAX_REPORT_IDS; n++) {
-		pSh2->report[n].id = 0;
-		pSh2->report[n].len = 0;
+		sh2.report[n].id = 0;
+		sh2.report[n].len = 0;
 	}
   
-	pSh2->nextCmdSeq = 0;
+	sh2.nextCmdSeq = 0;
 
 	// Register SH2 handlers
-	shtp_listenAdvert(unit, "sensorhub", sensorhubAdvertHdlr, (void *)unit);
-	shtp_listenChan(unit, "sensorhub", "control", sensorhubControlHdlr, (void *)unit);
-	shtp_listenChan(unit, "sensorhub", "inputNormal", sensorhubInputNormalHdlr, (void *)unit);
-	shtp_listenChan(unit, "sensorhub", "inputWake", sensorhubInputWakeHdlr, (void *)unit);
-	shtp_listenChan(unit, "sensorhub", "inputGyroRv", sensorhubInputGyroRvHdlr, (void *)unit);
+	shtp_listenAdvert("sensorhub", sensorhubAdvertHdlr, NULL);
+	shtp_listenChan("sensorhub", "control", sensorhubControlHdlr, NULL);
+	shtp_listenChan("sensorhub", "inputNormal", sensorhubInputNormalHdlr, NULL);
+	shtp_listenChan("sensorhub", "inputWake", sensorhubInputWakeHdlr, NULL);
+	shtp_listenChan("sensorhub", "inputGyroRv", sensorhubInputGyroRvHdlr, NULL);
 
-	pSh2->execBadPayload = 0;
+	sh2.execBadPayload = 0;
 
 	// Register EXECUTABLE handlers
-	shtp_listenAdvert(unit, "executable", executableAdvertHdlr, (void *)unit);
-	shtp_listenChan(unit, "executable", "device", executableDeviceHdlr, (void *)unit);
+	shtp_listenAdvert("executable", executableAdvertHdlr, NULL);
+	shtp_listenChan("executable", "device", executableDeviceHdlr, NULL);
     
 
 	return SH2_OK;
 }
 
-int sh2_setSensorCallback(unsigned unit, sh2_SensorCallback_t *callback, void *cookie)
+int sh2_setSensorCallback(sh2_SensorCallback_t *callback, void *cookie)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	pSh2->sensorCallback = callback;
-	pSh2->sensorCallbackCookie = cookie;
+	sh2.sensorCallback = callback;
+	sh2.sensorCallbackCookie = cookie;
 
 	return SH2_OK;
 }
 
-int sh2_getProdIds(unsigned unit,
-                   sh2_ProductIds_t *pProdIds)
+int sh2_getProdIds(sh2_ProductIds_t *pProdIds)
 {
-	sh2_t *pSh2 = &sh2[unit];
-	
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
 	if (pProdIds) {
 		pProdIds->nextEntry = 0;
 	}
-	pSh2->pProdIds = pProdIds;
-	return opStart(unit,
-                   &getProdIdOp);
+	sh2.pProdIds = pProdIds;
+	return opStart(&getProdIdOp);
 }
 
-int sh2_getSensorConfig(unsigned unit,
-                        sh2_SensorId_t sensorId, sh2_SensorConfig_t *config)
+int sh2_getSensorConfig(sh2_SensorId_t sensorId, sh2_SensorConfig_t *config)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
-	pSh2->opData.getSensorConfig.sensorId = sensorId;
-	pSh2->opData.getSensorConfig.pConfig = config;
-	return opStart(unit,
-                   &getSensorConfigOp);
+	sh2.opData.getSensorConfig.sensorId = sensorId;
+	sh2.opData.getSensorConfig.pConfig = config;
+	return opStart(&getSensorConfigOp);
 }
 
-int sh2_setSensorConfig(unsigned unit,
-                        sh2_SensorId_t sensorId, const sh2_SensorConfig_t *pConfig)
+int sh2_setSensorConfig(sh2_SensorId_t sensorId, const sh2_SensorConfig_t *pConfig)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
     // Set up operation
-	pSh2->opData.setSensorConfig.sensorId = sensorId;
-	pSh2->opData.setSensorConfig.pConfig = pConfig;
+	sh2.opData.setSensorConfig.sensorId = sensorId;
+	sh2.opData.setSensorConfig.pConfig = pConfig;
 
-	return opStart(unit,
-                   &setSensorConfigOp);
+	return opStart(&setSensorConfigOp);
 }
 
 const static struct {
@@ -651,14 +616,8 @@ const static struct {
 	{ SH2_CIRCLE_DETECTOR,              FRS_ID_META_CIRCLE_DETECTOR },
 };
 
-int sh2_getMetadata(unsigned unit,
-                    sh2_SensorId_t sensorId, sh2_SensorMetadata_t *pData)
+int sh2_getMetadata(sh2_SensorId_t sensorId, sh2_SensorMetadata_t *pData)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
 	// pData must be non-null
 	if (pData == 0) return SH2_ERR_BAD_PARAM;
   
@@ -676,242 +635,147 @@ int sh2_getMetadata(unsigned unit,
 	uint16_t recordId = sensorToRecordMap[i].recordId;
 	
 	// Set up an FRS read operation
-	pSh2->opData.getFrs.frsType = recordId;
-	pSh2->opData.getFrs.pData = pSh2->frsData;
-	pSh2->frsDataLen = ARRAY_LEN(pSh2->frsData);
-	pSh2->opData.getFrs.pWords = &pSh2->frsDataLen;
-	pSh2->opData.getFrs.lastOffset = 0;
-	pSh2->opData.getFrs.pMetadata = pData;
+	sh2.opData.getFrs.frsType = recordId;
+	sh2.opData.getFrs.pData = sh2.frsData;
+	sh2.frsDataLen = ARRAY_LEN(sh2.frsData);
+	sh2.opData.getFrs.pWords = &sh2.frsDataLen;
+	sh2.opData.getFrs.lastOffset = 0;
+	sh2.opData.getFrs.pMetadata = pData;
 
-	return opStart(unit,
-                   &getFrsOp);
+	return opStart(&getFrsOp);
 }
 
-int sh2_getFrs(unsigned unit,
-               uint16_t recordId, uint32_t *pData, uint16_t *words)
+int sh2_getFrs(uint16_t recordId, uint32_t *pData, uint16_t *words)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
 	// Store params for this op
-	pSh2->opData.getFrs.frsType = recordId;
-	pSh2->opData.getFrs.pData = pData;
-	pSh2->opData.getFrs.pWords = words;
-	pSh2->opData.getFrs.lastOffset = 0;
-	pSh2->opData.getFrs.pMetadata = 0;
+	sh2.opData.getFrs.frsType = recordId;
+	sh2.opData.getFrs.pData = pData;
+	sh2.opData.getFrs.pWords = words;
+	sh2.opData.getFrs.lastOffset = 0;
+	sh2.opData.getFrs.pMetadata = 0;
 
-	return opStart(unit,
-                   &getFrsOp);
+	return opStart(&getFrsOp);
 }
 
-int sh2_setFrs(unsigned unit,
-               uint16_t recordId, uint32_t *pData, uint16_t words)
+int sh2_setFrs(uint16_t recordId, uint32_t *pData, uint16_t words)
 {
-	sh2_t *pSh2 = &sh2[unit];
+	sh2.opData.setFrs.frsType = recordId;
+	sh2.opData.setFrs.pData = pData;
+	sh2.opData.setFrs.words = words;
 
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
-	pSh2->opData.setFrs.frsType = recordId;
-	pSh2->opData.setFrs.pData = pData;
-	pSh2->opData.setFrs.words = words;
-
-	return opStart(unit,
-                   &setFrsOp);
+	return opStart(&setFrsOp);
 }
 
-int sh2_getErrors(unsigned unit,
-                  uint8_t severity, sh2_ErrorRecord_t *pErrors, uint16_t *numErrors)
+int sh2_getErrors(uint8_t severity, sh2_ErrorRecord_t *pErrors, uint16_t *numErrors)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	pSh2->opData.getErrors.severity = severity;
-	pSh2->opData.getErrors.pErrors = pErrors;
-	pSh2->opData.getErrors.pNumErrors = numErrors;
+	sh2.opData.getErrors.severity = severity;
+	sh2.opData.getErrors.pErrors = pErrors;
+	sh2.opData.getErrors.pNumErrors = numErrors;
 	
-	return opStart(unit,
-                   &getErrorsOp);
+	return opStart(&getErrorsOp);
 }
 
-int sh2_getCounts(unsigned unit,
-                  sh2_SensorId_t sensorId, sh2_Counts_t *pCounts)
+int sh2_getCounts(sh2_SensorId_t sensorId, sh2_Counts_t *pCounts)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	pSh2->opData.getCounts.sensorId = sensorId;
-	pSh2->opData.getCounts.pCounts = pCounts;
+	sh2.opData.getCounts.sensorId = sensorId;
+	sh2.opData.getCounts.pCounts = pCounts;
 	
-	return opStart(unit,
-                   &getCountsOp);
+	return opStart(&getCountsOp);
 }
 
-int sh2_clearCounts(unsigned unit,
-                    sh2_SensorId_t sensorId)
+int sh2_clearCounts(sh2_SensorId_t sensorId)
 {
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
-	setupCmd1(unit, SH2_CMD_COUNTS, SH2_COUNTS_CLEAR_COUNTS);
-	return opStart(unit,
-                   &sendCmdOp);
+	setupCmd1(SH2_CMD_COUNTS, SH2_COUNTS_CLEAR_COUNTS);
+	return opStart(&sendCmdOp);
 }
 
-int sh2_setTareNow(unsigned unit,
-                   uint8_t axes,    // SH2_TARE_X | SH2_TARE_Y | SH2_TARE_Z
+int sh2_setTareNow(uint8_t axes,    // SH2_TARE_X | SH2_TARE_Y | SH2_TARE_Z
                    sh2_TareBasis_t basis)
 {
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	setupCmd1(unit, SH2_CMD_TARE, SH2_TARE_TARE_NOW);
-	return opStart(unit,
-                   &sendCmdOp);
+	setupCmd1(SH2_CMD_TARE, SH2_TARE_TARE_NOW);
+	return opStart(&sendCmdOp);
 }
 
-int sh2_clearTare(unsigned unit)
+int sh2_clearTare(void)
 {
 	uint8_t p[9];
 
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
 	memset(p, 0, sizeof(p));
 	p[0] = SH2_TARE_SET_REORIENTATION;
 
-	setupCmdParams(unit, SH2_CMD_TARE, p);
-	return opStart(unit,
-                   &sendCmdOp);
+	setupCmdParams(SH2_CMD_TARE, p);
+	return opStart(&sendCmdOp);
 }
 
-int sh2_persistTare(unsigned unit)
+int sh2_persistTare(void)
 {
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	setupCmd1(unit, SH2_CMD_TARE, SH2_TARE_PERSIST_TARE);
-	return opStart(unit,
-                   &sendCmdOp);
+	setupCmd1(SH2_CMD_TARE, SH2_TARE_PERSIST_TARE);
+	return opStart(&sendCmdOp);
 }
 
-int sh2_setReorientation(unsigned unit,
-                         sh2_Quaternion_t *orientation)
+int sh2_setReorientation(sh2_Quaternion_t *orientation)
 {
 	uint8_t p[9];
 
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
 	p[0] = SH2_TARE_SET_REORIENTATION;
 	writeu16(&p[1], toQ14(orientation->x));
 	writeu16(&p[3], toQ14(orientation->y));
 	writeu16(&p[5], toQ14(orientation->z));
 	writeu16(&p[7], toQ14(orientation->w));
 
-	setupCmdParams(unit, SH2_CMD_TARE, p);
-	return opStart(unit,
-                   &sendCmdOp);
+	setupCmdParams(SH2_CMD_TARE, p);
+	return opStart(&sendCmdOp);
 }
 
-int sh2_reinitialize(unsigned unit)
+int sh2_reinitialize(void)
 {
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	return opStart(unit,
-                   &reinitOp);
+	return opStart(&reinitOp);
 }
 
-int sh2_saveDcdNow(unsigned unit)
+int sh2_saveDcdNow(void)
 {
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	return opStart(unit,
-                   &saveDcdNowOp);
+	return opStart(&saveDcdNowOp);
 }
 
-int sh2_getOscType(unsigned unit,
-                   sh2_OscType_t *pOscType)
+int sh2_getOscType(sh2_OscType_t *pOscType)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
-    pSh2->opData.getOscType.pOscType = pOscType;
-	return opStart(unit,
-                   &getOscTypeOp);
+    sh2.opData.getOscType.pOscType = pOscType;
+	return opStart(&getOscTypeOp);
 }
 
 
-int sh2_setCalConfig(unsigned unit,
-                  uint8_t sensors)
+int sh2_setCalConfig(uint8_t sensors)
 {
-	sh2_t *pSh2 = &sh2[unit];
+	sh2.opData.calConfig.sensors = sensors;
 
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	pSh2->opData.calConfig.sensors = sensors;
-
-	return opStart(unit,
-                   &calConfigOp);
+	return opStart(&calConfigOp);
 }
 
-int sh2_syncRvNow(unsigned unit)
+int sh2_syncRvNow(void)
 {
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	setupCmd1(unit, SH2_CMD_SYNC, SH2_SYNC_SYNC_NOW);
-	return opStart(unit,
-                   &sendCmdOp);
+	setupCmd1(SH2_CMD_SYNC, SH2_SYNC_SYNC_NOW);
+	return opStart(&sendCmdOp);
 }
 
-int sh2_setExtSync(unsigned unit,
-                  bool enabled)
+int sh2_setExtSync(bool enabled)
 {
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	setupCmd1(unit, SH2_CMD_SYNC,
+	setupCmd1(SH2_CMD_SYNC,
 	          enabled ? SH2_SYNC_ENABLE_EXT_SYNC : SH2_SYNC_DISABLE_EXT_SYNC);
-	return opStart(unit,
-                   &sendCmdOp);
+	return opStart(&sendCmdOp);
 }
 
-int sh2_setDcdAutoSave(unsigned unit,
-                    bool enabled)
+int sh2_setDcdAutoSave(bool enabled)
 {
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	setupCmd1(unit, SH2_CMD_DCD_SAVE, enabled ? 0 : 1);
-	return opStart(unit,
-                   &sendCmdOp);
+	setupCmd1(SH2_CMD_DCD_SAVE, enabled ? 0 : 1);
+	return opStart(&sendCmdOp);
 }
 
-int sh2_flush(unsigned unit,
-              sh2_SensorId_t sensorId)
+int sh2_flush(sh2_SensorId_t sensorId)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
 	// Set up flush operation
-	pSh2->opData.forceFlush.sensorId = sensorId;
+	sh2.opData.forceFlush.sensorId = sensorId;
 
-	return opStart(unit,
-                   &forceFlushOp);
+	return opStart(&forceFlushOp);
 }
 
 // --- Private utility functions --------------------------------------------------------------
@@ -924,36 +788,32 @@ static int16_t toQ14(double x)
 }
 
 // Send a command with parameters from p
-static void setupCmdParams(unsigned unit, uint8_t cmd, uint8_t p[9])
+static void setupCmdParams(uint8_t cmd, uint8_t p[9])
 {
-	sh2_t *pSh2 = &sh2[unit];
-
 	// Set up request
-	pSh2->opData.sendCmd.req.reportId = SENSORHUB_COMMAND_REQ;
-	pSh2->opData.sendCmd.req.seq = pSh2->nextCmdSeq++;
-	pSh2->opData.sendCmd.req.command = cmd;
-	memcpy(&pSh2->opData.sendCmd.req.p, p,
-	       sizeof(pSh2->opData.sendCmd.req.p));
+	sh2.opData.sendCmd.req.reportId = SENSORHUB_COMMAND_REQ;
+	sh2.opData.sendCmd.req.seq = sh2.nextCmdSeq++;
+	sh2.opData.sendCmd.req.command = cmd;
+	memcpy(&sh2.opData.sendCmd.req.p, p,
+	       sizeof(sh2.opData.sendCmd.req.p));
 }
 
 // Set up command to send
-static void setupCmd1(unsigned unit, uint8_t cmd, uint8_t p0)
+static void setupCmd1(uint8_t cmd, uint8_t p0)
 {
 	uint8_t p[9];
 
 	memset(p, 0, sizeof(p));
 	p[0] = p0;
-	setupCmdParams(unit, cmd, p);
+	setupCmdParams(cmd, p);
 }
 
 static void sensorhubAdvertHdlr(void *cookie, uint8_t tag, uint8_t len, uint8_t *val)
 {
-	unsigned unit = (unsigned)cookie;
-	sh2_t *pSh2 = &sh2[unit];
 
 	switch (tag) {
 	case TAG_SH2_VERSION:
-		strcpy(pSh2->version, (const char *)val);
+		strcpy(sh2.version, (const char *)val);
 		break;
 
 	case TAG_SH2_REPORT_LENGTHS:
@@ -965,8 +825,8 @@ static void sensorhubAdvertHdlr(void *cookie, uint8_t tag, uint8_t len, uint8_t 
 		}
 		
 		for (int n = 0; n < reports; n++) {
-			pSh2->report[n].id = val[n*2];
-			pSh2->report[n].len = val[n*2 + 1];
+			sh2.report[n].id = val[n*2];
+			sh2.report[n].len = val[n*2 + 1];
 		}
 		break;
 	}
@@ -975,9 +835,9 @@ static void sensorhubAdvertHdlr(void *cookie, uint8_t tag, uint8_t len, uint8_t 
 	{
 		// 0 tag indicates end of advertisements for this app
 		// At this time, the SHTP layer can give us our channel number.
-		pSh2->controlChan = shtp_chanNo(unit, "sensorhub", "control");
+		sh2.controlChan = shtp_chanNo("sensorhub", "control");
 
-		pSh2->advertDone = true;
+		sh2.advertDone = true;
 		break;
 	}
 		
@@ -988,15 +848,13 @@ static void sensorhubAdvertHdlr(void *cookie, uint8_t tag, uint8_t len, uint8_t 
 
 static void sensorhubControlHdlr(void *cookie, uint8_t *payload, uint16_t len, uint32_t timestamp)
 {
-	unsigned unit = (unsigned)cookie;
-	sh2_t *pSh2 = &sh2[unit];
 	uint16_t cursor = 0;
 	uint32_t count = 0;
 	CommandResp_t * pResp = 0;
     sh2_AsyncEvent_t event;
 	
 	if (len == 0) {
-		pSh2->emptyPayloads++;
+		sh2.emptyPayloads++;
 		return;
 	}
 
@@ -1008,14 +866,14 @@ static void sensorhubControlHdlr(void *cookie, uint8_t *payload, uint16_t len, u
 		// Determine report length
 		uint8_t reportLen = 0;
 		for (int n = 0; n < SH2_MAX_REPORT_IDS; n++) {
-			if (pSh2->report[n].id == reportId) {
-				reportLen = pSh2->report[n].len;
+			if (sh2.report[n].id == reportId) {
+				reportLen = sh2.report[n].len;
 				break;
 			}
 		}
 		if (reportLen == 0) {
 			// An unrecognized report id
-			pSh2->unknownReportIds++;
+			sh2.unknownReportIds++;
 			return;
 		}
 		else {
@@ -1026,27 +884,27 @@ static void sensorhubControlHdlr(void *cookie, uint8_t *payload, uint16_t len, u
 				    (pResp->r[1] == SH2_INIT_SYSTEM)) {
 					// This is an unsolicited INIT message.
 					// Is it time to call reset callback?
-					pSh2->gotInitResp = true;
+					sh2.gotInitResp = true;
 				}
 				if (pResp->command == (SH2_CMD_FRS | SH2_INIT_UNSOLICITED))
                 {
 					// This is an unsolicited FRS change message
                     event.eventId = SH2_FRS_CHANGE;
                     event.frsType = pResp->r[1] + (pResp->r[2] << 8);
-                    if (pSh2->eventCallback) {
-                        pSh2->eventCallback(pSh2->eventCallbackCookie, &event);
+                    if (sh2.eventCallback) {
+                        sh2.eventCallback(sh2.eventCallbackCookie, &event);
                     }
 				}
 			}
 
 			// Hand off to operation in progress, if any
-			opRx(unit, payload+cursor, reportLen);
+			opRx(payload+cursor, reportLen);
 			cursor += reportLen;
 		}
 	}
 }
 
-static void sensorhubInputHdlr(sh2_t *pSh2, uint8_t *payload, uint16_t len, uint32_t timestamp)
+static void sensorhubInputHdlr(uint8_t *payload, uint16_t len, uint32_t timestamp)
 {
 	sh2_SensorEvent_t event;
 	uint16_t cursor = 0;
@@ -1060,10 +918,10 @@ static void sensorhubInputHdlr(sh2_t *pSh2, uint8_t *payload, uint16_t len, uint
 		uint8_t reportId = payload[cursor];
 
 		// Determine report length
-		uint8_t reportLen = getReportLen(pSh2, reportId);
+		uint8_t reportLen = getReportLen(reportId);
 		if (reportLen == 0) {
 			// An unrecognized report id
-			pSh2->unknownReportIds++;
+			sh2.unknownReportIds++;
 			return;
 		}
 		else {
@@ -1085,8 +943,8 @@ static void sensorhubInputHdlr(sh2_t *pSh2, uint8_t *payload, uint16_t len, uint
                 event.reportId = reportId;
                 event.pReport = pReport;
 				event.len = reportLen;
-				if (pSh2->sensorCallback != 0) {
-					pSh2->sensorCallback(pSh2->sensorCallbackCookie, &event);
+				if (sh2.sensorCallback != 0) {
+					sh2.sensorCallback(sh2.sensorCallbackCookie, &event);
 				}
 			}
 			cursor += reportLen;
@@ -1096,30 +954,24 @@ static void sensorhubInputHdlr(sh2_t *pSh2, uint8_t *payload, uint16_t len, uint
 
 static void sensorhubInputNormalHdlr(void *cookie, uint8_t *payload, uint16_t len, uint32_t timestamp)
 {
-	unsigned unit = (unsigned)cookie;
-	sh2_t *pSh2 = &sh2[unit];
 	
-	sensorhubInputHdlr(pSh2, payload, len, timestamp);
+	sensorhubInputHdlr(payload, len, timestamp);
 }
 
 static void sensorhubInputWakeHdlr(void *cookie, uint8_t *payload, uint16_t len, uint32_t timestamp)
 {
-	unsigned unit = (unsigned)cookie;
-	sh2_t *pSh2 = &sh2[unit];
 	
-	sensorhubInputHdlr(pSh2, payload, len, timestamp);
+	sensorhubInputHdlr(payload, len, timestamp);
 }
 
 static void sensorhubInputGyroRvHdlr(void *cookie, uint8_t *payload, uint16_t len, uint32_t timestamp)
 {
-	unsigned unit = (unsigned)cookie;
-	sh2_t *pSh2 = &sh2[unit];
 
 	sh2_SensorEvent_t event;
 	uint16_t cursor = 0;
 
     uint8_t reportId = SH2_GYRO_INTEGRATED_RV;
-    uint8_t reportLen = getReportLen(pSh2, reportId);
+    uint8_t reportLen = getReportLen(reportId);
 
     while (cursor < len) {
         event.timestamp_uS = timestamp;
@@ -1127,19 +979,19 @@ static void sensorhubInputGyroRvHdlr(void *cookie, uint8_t *payload, uint16_t le
         event.pReport = payload+cursor;
         event.len = reportLen;
 
-        if (pSh2->sensorCallback != 0) {
-            pSh2->sensorCallback(pSh2->sensorCallbackCookie, &event);
+        if (sh2.sensorCallback != 0) {
+            sh2.sensorCallback(sh2.sensorCallbackCookie, &event);
         }
 
         cursor += reportLen;
     }
 }
 
-static uint8_t getReportLen(sh2_t *pSh2, uint8_t reportId)
+static uint8_t getReportLen(uint8_t reportId)
 {
     for (int n = 0; n < SH2_MAX_REPORT_IDS; n++) {
-        if (pSh2->report[n].id == reportId) {
-            return pSh2->report[n].len;
+        if (sh2.report[n].id == reportId) {
+            return sh2.report[n].len;
         }
     }
 
@@ -1147,60 +999,51 @@ static uint8_t getReportLen(sh2_t *pSh2, uint8_t reportId)
 }
 
 // SH-2 transaction phases
-static int opStart(unsigned unit,
-                   const sh2_Op_t *pOp)
+static int opStart(const sh2_Op_t *pOp)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
 	// return error if another operation already in progress
-	if (pSh2->pOp) return SH2_ERR_OP_IN_PROGRESS;
+	if (sh2.pOp) return SH2_ERR_OP_IN_PROGRESS;
 
 	// Establish this operation as the new operation in progress
-	pSh2->pOp = pOp;
-	int rc = pOp->start(unit);  // Call start method
+	sh2.pOp = pOp;
+	int rc = pOp->start();  // Call start method
 	if (rc != SH2_OK) {
 		// Operation failed to start
 		
 		// Unregister this operation
-		pSh2->pOp = 0;
+		sh2.pOp = 0;
 	}
 
     // Block the calling thread until the operation completes.
-    sh2_hal_block(unit);
+    sh2_hal_block();
 
 	// Clear operation in progress
-	pSh2->pOp = 0;
+	sh2.pOp = 0;
 	
 	return rc;
 }
 
-static void opTxDone(unsigned unit)
+static void opTxDone(void)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	if ((pSh2->pOp != 0) && (pSh2->pOp->txDone != 0)) {
-		pSh2->pOp->txDone(unit);  // Call txDone method
+	if ((sh2.pOp != 0) && (sh2.pOp->txDone != 0)) {
+		sh2.pOp->txDone();  // Call txDone method
 	}
 }
 
-static void opRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void opRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
-	if ((pSh2->pOp != 0) && (pSh2->pOp->rx != 0)) {
-		pSh2->pOp->rx(unit, payload, len);  // Call receive method
+	if ((sh2.pOp != 0) && (sh2.pOp->rx != 0)) {
+		sh2.pOp->rx(payload, len);  // Call receive method
 	}
 }
 
-static int opCompleted(unsigned unit, int status)
+static int opCompleted(int status)
 {
-	sh2_t *pSh2 = &sh2[unit];
-
 	// Record status
-	pSh2->opEvent.status = status;
+	sh2.opEvent.status = status;
 
     // Block the calling thread until the operation completes.
-    sh2_hal_unblock(unit);
+    sh2_hal_unblock();
 
 	return SH2_OK;
 }
@@ -1226,56 +1069,50 @@ static uint64_t touSTimestamp(uint32_t hostInt, int32_t referenceDelta, uint16_t
 
 // --- Operation: Send Command (no response expected.) ----------------------
 
-static int sendCmdStart(unsigned unit)
+static int sendCmdStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
-	
+
 	// Send request
-	rc = shtp_send(unit, pSh2->controlChan,
-                   (uint8_t *)&pSh2->opData.sendCmd.req,
-                   sizeof(pSh2->opData.sendCmd.req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan,
+                   (uint8_t *)&sh2.opData.sendCmd.req,
+                   sizeof(sh2.opData.sendCmd.req));
+    opTxDone();
 
 	return rc;
 }
 
-static void sendCmdTxDone(unsigned unit)
+static void sendCmdTxDone(void)
 {
-	opCompleted(unit, SH2_OK);
+	opCompleted(SH2_OK);
 }
 	
 // --- Operation: Get Product Id ----------------------
 
 // Get Product ID Op handler
-static int getProdIdStart(unsigned unit)
+static int getProdIdStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	ProdIdReq_t req;
 	
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
 	// Set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_PROD_ID_REQ;
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
 
-static void getProdIdRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void getProdIdRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	ProdIdResp_t *resp = (ProdIdResp_t *)payload;
 	
 	// skip this if it isn't the product id response.
 	if (resp->reportId != SENSORHUB_PROD_ID_RESP) return;
 
 	// Store this product id, if we can
-	sh2_ProductIds_t *pProdIds = pSh2->pProdIds;
+	sh2_ProductIds_t *pProdIds = sh2.pProdIds;
 	
 	if (pProdIds) {
 		// Store the product id response
@@ -1298,7 +1135,7 @@ static void getProdIdRx(unsigned unit, const uint8_t *payload, uint16_t len)
 	// Complete this operation if there is no storage for more product ids
 	if ((pProdIds == 0) ||
 	    (pProdIds->nextEntry == SH2_NUM_PROD_ID_ENTRIES)) {
-		opCompleted(unit, SH2_OK);
+		opCompleted(SH2_OK);
 	}
 
 	return;
@@ -1306,37 +1143,32 @@ static void getProdIdRx(unsigned unit, const uint8_t *payload, uint16_t len)
 
 // --- Operation: Get Sensor Config ----------------------
 
-static int getSensorConfigStart(unsigned unit)
+static int getSensorConfigStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	GetFeatureReq_t req;
 	
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
 	// set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_GET_FEATURE_REQ;
-	req.featureReportId = pSh2->opData.getSensorConfig.sensorId;
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	req.featureReportId = sh2.opData.getSensorConfig.sensorId;
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
 
-static void getSensorConfigRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void getSensorConfigRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	GetFeatureResp_t *resp = (GetFeatureResp_t *)payload;
 	sh2_SensorConfig_t *pConfig;
 	
 	// skip this if it isn't the response we're waiting for.
 	if (resp->reportId != SENSORHUB_GET_FEATURE_RESP) return;
-	if (resp->featureReportId != pSh2->opData.getSensorConfig.sensorId) return;
+	if (resp->featureReportId != sh2.opData.getSensorConfig.sensorId) return;
 
 	// Copy out data
-	pConfig = pSh2->opData.getSensorConfig.pConfig;
+	pConfig = sh2.opData.getSensorConfig.pConfig;
 	
 	pConfig->changeSensitivityEnabled = ((resp->flags & FEAT_CHANGE_SENSITIVITY_ENABLED) != 0);
 	pConfig->changeSensitivityRelative = ((resp->flags & FEAT_CHANGE_SENSITIVITY_RELATIVE) != 0);
@@ -1348,18 +1180,17 @@ static void getSensorConfigRx(unsigned unit, const uint8_t *payload, uint16_t le
 	pConfig->sensorSpecific = resp->sensorSpecific;
 
 	// Complete this operation
-	opCompleted(unit, SH2_OK);
+	opCompleted(SH2_OK);
 
 	return;
 }
 
-static int setSensorConfigStart(unsigned unit)
+static int setSensorConfigStart(void)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	SetFeatureReport_t req;
 	uint8_t flags = 0;
 	int rc;
-	sh2_SensorConfig_t *pConfig = pSh2->opData.getSensorConfig.pConfig;
+	sh2_SensorConfig_t *pConfig = sh2.opData.getSensorConfig.pConfig;
 	
 	if (pConfig->changeSensitivityEnabled)  flags |= FEAT_CHANGE_SENSITIVITY_ENABLED;
 	if (pConfig->changeSensitivityRelative) flags |= FEAT_CHANGE_SENSITIVITY_RELATIVE;
@@ -1368,46 +1199,42 @@ static int setSensorConfigStart(unsigned unit)
 
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_SET_FEATURE_CMD;
-	req.featureReportId = pSh2->opData.setSensorConfig.sensorId;
+	req.featureReportId = sh2.opData.setSensorConfig.sensorId;
 	req.flags = flags;
 	req.changeSensitivity = pConfig->changeSensitivity;
 	req.reportInterval_uS = pConfig->reportInterval_us;
 	req.batchInterval_uS = pConfig->batchInterval_us;
 	req.sensorSpecific = pConfig->sensorSpecific;
 
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
 
-static void setSensorConfigTxDone(unsigned unit)
+static void setSensorConfigTxDone(void)
 {
 	// complete immediately
-	opCompleted(unit, SH2_OK);
+	opCompleted(SH2_OK);
 }
 
 // --- get frs operation ------------------------------------
 
-static int getFrsStart(unsigned unit)
+static int getFrsStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	FrsReadReq_t req;
 
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
 	// set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_FRS_READ_REQ;
 	req.reserved = 0;
 	req.readOffset = 0; // read from start
-	req.frsType = pSh2->opData.getFrs.frsType;
-	req.blockSize = *(pSh2->opData.getFrs.pWords);
+	req.frsType = sh2.opData.getFrs.frsType;
+	req.blockSize = *(sh2.opData.getFrs.pWords);
 
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
@@ -1450,9 +1277,8 @@ static void stuffMetadata(sh2_SensorMetadata_t *pData, uint32_t *frsData)
 	}
 }
 
-static void getFrsRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void getFrsRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	FrsReadResp_t *resp = (FrsReadResp_t *)payload;
 	uint8_t status;
 
@@ -1467,44 +1293,44 @@ static void getFrsRx(unsigned unit, const uint8_t *payload, uint16_t len)
 	    (status == FRS_READ_STATUS_DEVICE_ERROR)
 		) {
 		// Operation failed
-		opCompleted(unit, SH2_ERR_HUB);
+		opCompleted(SH2_ERR_HUB);
 		return;
 	}
 
 	if (status == FRS_READ_STATUS_RECORD_EMPTY) {
 		// Empty record, return zero length.
-		*(pSh2->opData.getFrs.pWords) = 0;
-		opCompleted(unit, SH2_OK);
+		*(sh2.opData.getFrs.pWords) = 0;
+		opCompleted(SH2_OK);
 	}
 
 	// Store the contents from this response
 	uint16_t offset = resp->wordOffset;
 	
 	// store first word, if we have room
-	if (offset <= *(pSh2->opData.getFrs.pWords)) {
-		pSh2->opData.getFrs.pData[offset] = resp->data0;
-		pSh2->opData.getFrs.lastOffset = offset;
+	if (offset <= *(sh2.opData.getFrs.pWords)) {
+		sh2.opData.getFrs.pData[offset] = resp->data0;
+		sh2.opData.getFrs.lastOffset = offset;
 	}
 
 	// store second word if there is one and we have room
 	if ((FRS_READ_DATALEN(resp->len_status) == 2)  &&
-	    (offset <= *(pSh2->opData.getFrs.pWords))) {
-		pSh2->opData.getFrs.pData[offset+1] = resp->data1;
-		pSh2->opData.getFrs.lastOffset = offset+1;
+	    (offset <= *(sh2.opData.getFrs.pWords))) {
+		sh2.opData.getFrs.pData[offset+1] = resp->data1;
+		sh2.opData.getFrs.lastOffset = offset+1;
 	}
 
 	// If read is done, complete the operation
 	if ((status == FRS_READ_STATUS_READ_RECORD_COMPLETED) ||
 	    (status == FRS_READ_STATUS_READ_BLOCK_COMPLETED) ||
 	    (status == FRS_READ_STATUS_READ_BLOCK_AND_RECORD_COMPLETED)) {
-		*(pSh2->opData.getFrs.pWords) = pSh2->opData.getFrs.lastOffset+1;
+		*(sh2.opData.getFrs.pWords) = sh2.opData.getFrs.lastOffset+1;
 
         // If this was performed from getMetadata, copy the results into pMetadata.
-		if (pSh2->opData.getFrs.pMetadata != 0) {
-			stuffMetadata(pSh2->opData.getFrs.pMetadata, pSh2->opData.getFrs.pData);
+		if (sh2.opData.getFrs.pMetadata != 0) {
+			stuffMetadata(sh2.opData.getFrs.pMetadata, sh2.opData.getFrs.pData);
 		}
 
-		opCompleted(unit, SH2_OK);
+		opCompleted(SH2_OK);
 	}
 
 	return;
@@ -1512,33 +1338,28 @@ static void getFrsRx(unsigned unit, const uint8_t *payload, uint16_t len)
 
 // --- set frs operation ------------------------------------
 
-static int setFrsStart(unsigned unit)
+static int setFrsStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	FrsWriteReq_t req;
 
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
-	pSh2->opData.setFrs.offset = 0;
+	sh2.opData.setFrs.offset = 0;
 	
 	// set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_FRS_WRITE_REQ;
 	req.reserved = 0;
-	req.length = pSh2->opData.setFrs.words;
-	req.frsType = pSh2->opData.getFrs.frsType;
+	req.length = sh2.opData.setFrs.words;
+	req.frsType = sh2.opData.getFrs.frsType;
 
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
 
-static void setFrsRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void setFrsRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	FrsWriteResp_t *resp = (FrsWriteResp_t *)payload;
 	FrsWriteDataReq_t req;
 	uint8_t status;
@@ -1579,29 +1400,29 @@ static void setFrsRx(unsigned unit, const uint8_t *payload, uint16_t len)
 
 	// if we should send more data, do it.
 	if (sendMoreData &&
-	    (pSh2->opData.setFrs.offset < pSh2->opData.setFrs.words)) {
-		uint16_t offset = pSh2->opData.setFrs.offset;
+	    (sh2.opData.setFrs.offset < sh2.opData.setFrs.words)) {
+		uint16_t offset = sh2.opData.setFrs.offset;
 		
 		memset(&req, 0, sizeof(req));
 		req.reportId = SENSORHUB_FRS_WRITE_DATA_REQ;
 		req.reserved = 0;
 		req.offset = offset;
-		req.data0 = pSh2->opData.setFrs.pData[offset++];
-		if (offset < pSh2->opData.setFrs.words) {
-		    req.data1 = pSh2->opData.setFrs.pData[offset++];
+		req.data0 = sh2.opData.setFrs.pData[offset++];
+		if (offset < sh2.opData.setFrs.words) {
+		    req.data1 = sh2.opData.setFrs.pData[offset++];
 	    } else {
 		    req.data1 = 0;
 	    }
-		pSh2->opData.setFrs.offset = offset;
+		sh2.opData.setFrs.offset = offset;
 		
-		rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-        opTxDone(unit);
+		rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+        opTxDone();
 
 	}
 
 	// if the operation is done or has to be aborted, complete it
 	if (completed) {
-		opCompleted(unit, rc);
+		opCompleted(rc);
 	}
 
 	return;
@@ -1609,60 +1430,55 @@ static void setFrsRx(unsigned unit, const uint8_t *payload, uint16_t len)
 
 // --- Operation: get errors --------------
 
-static int getErrorsStart(unsigned unit)
+static int getErrorsStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	CommandReq_t req;
 	
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
 	// Create a command sequence number for this command
-	pSh2->opData.getErrors.seq = pSh2->nextCmdSeq++;
-	pSh2->opData.getErrors.errsRead = 0;
+	sh2.opData.getErrors.seq = sh2.nextCmdSeq++;
+	sh2.opData.getErrors.errsRead = 0;
 	
 	// set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_COMMAND_REQ;
-	req.seq = pSh2->opData.getErrors.seq;
+	req.seq = sh2.opData.getErrors.seq;
 	req.command = SH2_CMD_ERRORS;
-	req.p[0] = pSh2->opData.getErrors.severity;
+	req.p[0] = sh2.opData.getErrors.severity;
 	
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 	
 	return rc;
 }
 
-static void getErrorsRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void getErrorsRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	CommandResp_t *resp = (CommandResp_t *)payload;
 	
 	// skip this if it isn't the right response
 	if (resp->reportId != SENSORHUB_COMMAND_RESP) return;
 	if (resp->command != SH2_CMD_ERRORS) return;
-	if (resp->commandSeq != pSh2->opData.getErrors.seq) return;
+	if (resp->commandSeq != sh2.opData.getErrors.seq) return;
 
 
 	if (resp->r[2] == 255) {
 		// No error to report, operation is complete
-		*(pSh2->opData.getErrors.pNumErrors) = pSh2->opData.getErrors.errsRead;
-		opCompleted(unit, SH2_OK);
+		*(sh2.opData.getErrors.pNumErrors) = sh2.opData.getErrors.errsRead;
+		opCompleted(SH2_OK);
 	} else {
 		// Copy data for invoker.
-		unsigned index = pSh2->opData.getErrors.errsRead;
-		if (index < *(pSh2->opData.getErrors.pNumErrors)) {
+		unsigned index = sh2.opData.getErrors.errsRead;
+		if (index < *(sh2.opData.getErrors.pNumErrors)) {
 			// We have room for this one.
-			pSh2->opData.getErrors.pErrors[index].severity = resp->r[0];
-			pSh2->opData.getErrors.pErrors[index].sequence = resp->r[1];
-			pSh2->opData.getErrors.pErrors[index].source = resp->r[2];
-			pSh2->opData.getErrors.pErrors[index].error = resp->r[3];
-			pSh2->opData.getErrors.pErrors[index].module = resp->r[4];
-			pSh2->opData.getErrors.pErrors[index].code = resp->r[5];
+			sh2.opData.getErrors.pErrors[index].severity = resp->r[0];
+			sh2.opData.getErrors.pErrors[index].sequence = resp->r[1];
+			sh2.opData.getErrors.pErrors[index].source = resp->r[2];
+			sh2.opData.getErrors.pErrors[index].error = resp->r[3];
+			sh2.opData.getErrors.pErrors[index].module = resp->r[4];
+			sh2.opData.getErrors.pErrors[index].code = resp->r[5];
 
-			pSh2->opData.getErrors.errsRead++;
+			sh2.opData.getErrors.errsRead++;
 		}
 	}
 
@@ -1671,55 +1487,50 @@ static void getErrorsRx(unsigned unit, const uint8_t *payload, uint16_t len)
 
 // --- Operation: get counts --------------
 
-static int getCountsStart(unsigned unit)
+static int getCountsStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	CommandReq_t req;
 	
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
 	// Create a command sequence number for this command
-	pSh2->opData.getCounts.seq = pSh2->nextCmdSeq++;
+	sh2.opData.getCounts.seq = sh2.nextCmdSeq++;
 	
 	// set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_COMMAND_REQ;
-	req.seq = pSh2->opData.getCounts.seq;
+	req.seq = sh2.opData.getCounts.seq;
 	req.command = SH2_CMD_COUNTS;
 	req.p[0] = SH2_COUNTS_GET_COUNTS;
-	req.p[1] = pSh2->opData.getCounts.sensorId;
+	req.p[1] = sh2.opData.getCounts.sensorId;
 	
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
 
-static void getCountsRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void getCountsRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	CommandResp_t *resp = (CommandResp_t *)payload;
 	
 	// skip this if it isn't the right response
 	if (resp->reportId != SENSORHUB_COMMAND_RESP) return;
 	if (resp->command != SH2_CMD_COUNTS) return;
-	if (resp->commandSeq != pSh2->opData.getCounts.seq) return;
+	if (resp->commandSeq != sh2.opData.getCounts.seq) return;
 
 	// Store results
 	if (resp->respSeq == 0) {
-		pSh2->opData.getCounts.pCounts->offered = readu32(&resp->r[3]);
-		pSh2->opData.getCounts.pCounts->accepted = readu32(&resp->r[7]);
+		sh2.opData.getCounts.pCounts->offered = readu32(&resp->r[3]);
+		sh2.opData.getCounts.pCounts->accepted = readu32(&resp->r[7]);
 	}
 	else {
-		pSh2->opData.getCounts.pCounts->on = readu32(&resp->r[3]);
-		pSh2->opData.getCounts.pCounts->attempted = readu32(&resp->r[7]);
+		sh2.opData.getCounts.pCounts->on = readu32(&resp->r[3]);
+		sh2.opData.getCounts.pCounts->attempted = readu32(&resp->r[7]);
 	}
 	
 	// Complete this operation if we've received last response
 	if (resp->respSeq == 1) {
-		opCompleted(unit, SH2_OK);
+		opCompleted(SH2_OK);
 	}
 
 	return;
@@ -1727,40 +1538,35 @@ static void getCountsRx(unsigned unit, const uint8_t *payload, uint16_t len)
 
 // --- Operation: reinitialize --------------
 
-static int reinitStart(unsigned unit)
+static int reinitStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	CommandReq_t req;
 	
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
 	// Create a command sequence number for this command
-	pSh2->opData.reinit.seq = pSh2->nextCmdSeq++;
+	sh2.opData.reinit.seq = sh2.nextCmdSeq++;
 	
 	// set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_COMMAND_REQ;
-	req.seq = pSh2->opData.reinit.seq;
+	req.seq = sh2.opData.reinit.seq;
 	req.command = SH2_CMD_INITIALIZE;
 	req.p[0] = SH2_INIT_SYSTEM;
 	
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
 
-static void reinitRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void reinitRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	CommandResp_t *resp = (CommandResp_t *)payload;
 	
 	// skip this if it isn't the right response
 	if (resp->reportId != SENSORHUB_COMMAND_RESP) return;
 	if (resp->command != SH2_CMD_INITIALIZE) return;
-	if (resp->commandSeq != pSh2->opData.reinit.seq) return;
+	if (resp->commandSeq != sh2.opData.reinit.seq) return;
 
 	// If return status is error, return error to invoker
 	int rc = SH2_OK;
@@ -1769,46 +1575,41 @@ static void reinitRx(unsigned unit, const uint8_t *payload, uint16_t len)
 	}
 	
 	// Complete this operation
-	opCompleted(unit, rc);
+	opCompleted(rc);
 
 	return;
 }
 
 // --- Operation: save dcd now --------------
 
-static int saveDcdNowStart(unsigned unit)
+static int saveDcdNowStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	CommandReq_t req;
 	
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
 	// Create a command sequence number for this command
-	pSh2->opData.saveDcdNow.seq = pSh2->nextCmdSeq++;
+	sh2.opData.saveDcdNow.seq = sh2.nextCmdSeq++;
 	
 	// set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_COMMAND_REQ;
-	req.seq = pSh2->opData.saveDcdNow.seq;
+	req.seq = sh2.opData.saveDcdNow.seq;
 	req.command = SH2_CMD_DCD;
 	
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
 
-static void saveDcdNowRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void saveDcdNowRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	CommandResp_t *resp = (CommandResp_t *)payload;
 	
 	// skip this if it isn't the right response
 	if (resp->reportId != SENSORHUB_COMMAND_RESP) return;
 	if (resp->command != SH2_CMD_DCD) return;
-	if (resp->commandSeq != pSh2->opData.saveDcdNow.seq) return;
+	if (resp->commandSeq != sh2.opData.saveDcdNow.seq) return;
 
 	// If return status is error, return error to invoker
 	int rc = SH2_OK;
@@ -1817,50 +1618,45 @@ static void saveDcdNowRx(unsigned unit, const uint8_t *payload, uint16_t len)
 	}
 	
 	// Complete this operation
-	opCompleted(unit, rc);
+	opCompleted(rc);
 
 	return;
 }
 
 // --- Operation: cal config --------------
 
-static int calConfigStart(unsigned unit)
+static int calConfigStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	CommandReq_t req;
 	
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-
 	// Create a command sequence number for this command
-	pSh2->opData.calConfig.seq = pSh2->nextCmdSeq++;
+	sh2.opData.calConfig.seq = sh2.nextCmdSeq++;
 	
 	// set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_COMMAND_REQ;
-	req.seq = pSh2->opData.calConfig.seq;
+	req.seq = sh2.opData.calConfig.seq;
 	req.command = SH2_CMD_ME_CAL;
-	req.p[0] = (pSh2->opData.calConfig.sensors & SH2_CAL_ACCEL) ? 1 : 0; // accel cal
-	req.p[1] = (pSh2->opData.calConfig.sensors & SH2_CAL_GYRO)  ? 1 : 0; // gyro cal
-	req.p[2] = (pSh2->opData.calConfig.sensors & SH2_CAL_MAG)   ? 1 : 0; // mag cal
+	req.p[0] = (sh2.opData.calConfig.sensors & SH2_CAL_ACCEL) ? 1 : 0; // accel cal
+	req.p[1] = (sh2.opData.calConfig.sensors & SH2_CAL_GYRO)  ? 1 : 0; // gyro cal
+	req.p[2] = (sh2.opData.calConfig.sensors & SH2_CAL_MAG)   ? 1 : 0; // mag cal
 	
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
 
-static void calConfigRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void calConfigRx(const uint8_t *payload, uint16_t len)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	CommandResp_t *resp = (CommandResp_t *)payload;
 	
 	// skip this if it isn't the right response
 	if (resp->reportId != SENSORHUB_COMMAND_RESP) return;
 	if (resp->command != SH2_CMD_ME_CAL) return;
-	if (resp->commandSeq != pSh2->opData.calConfig.seq) return;
+	if (resp->commandSeq != sh2.opData.calConfig.seq) return;
 
 	// If return status is error, return error to invoker
 	if (resp->r[0] != 0) {
@@ -1868,90 +1664,80 @@ static void calConfigRx(unsigned unit, const uint8_t *payload, uint16_t len)
 	}
 	
 	// Complete this operation
-	opCompleted(unit, rc);
+	opCompleted(rc);
 
 	return;
 }
 
 // --- Operation: force flush --------------
 
-static int forceFlushStart(unsigned unit)
+static int forceFlushStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	ForceFlushReq_t req;
 	
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
 	// set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_FORCE_SENSOR_FLUSH;
-	req.sensorId = pSh2->opData.forceFlush.sensorId;
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	req.sensorId = sh2.opData.forceFlush.sensorId;
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
 
-static void forceFlushRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void forceFlushRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	ForceFlushResp_t *resp = (ForceFlushResp_t *)payload;
 	
 	// skip this if it isn't the flush completed response for this sensor
 	if (resp->reportId != SENSORHUB_FLUSH_COMPLETED) return;
-	if (resp->sensorId != pSh2->opData.forceFlush.sensorId) return;
+	if (resp->sensorId != sh2.opData.forceFlush.sensorId) return;
 
 	// Complete this operation
-	opCompleted(unit, SH2_OK);
+	opCompleted(SH2_OK);
 
 	return;
 }
 
 // --- Operation: get oscillator type --------------
 
-static int getOscTypeStart(unsigned unit)
+static int getOscTypeStart(void)
 {
 	int rc = SH2_OK;
-	sh2_t *pSh2 = &sh2[unit];
 	CommandReq_t req;
 	
-	// Validate unit
-	if (unit >= ARRAY_LEN(sh2)) return SH2_ERR_BAD_PARAM;
-  
 	// Create a command sequence number for this command
-	pSh2->opData.getOscType.seq = pSh2->nextCmdSeq++;
+	sh2.opData.getOscType.seq = sh2.nextCmdSeq++;
 	
 	// set up request to issue
 	memset(&req, 0, sizeof(req));
 	req.reportId = SENSORHUB_COMMAND_REQ;
-	req.seq = pSh2->opData.getOscType.seq;
+	req.seq = sh2.opData.getOscType.seq;
 	req.command = SH2_CMD_GET_OSC_TYPE;
 	
-	rc = shtp_send(unit, pSh2->controlChan, (uint8_t *)&req, sizeof(req));
-    opTxDone(unit);
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
 
 	return rc;
 }
 
-static void getOscTypeRx(unsigned unit, const uint8_t *payload, uint16_t len)
+static void getOscTypeRx(const uint8_t *payload, uint16_t len)
 {
-	sh2_t *pSh2 = &sh2[unit];
 	CommandResp_t *resp = (CommandResp_t *)payload;
 	sh2_OscType_t *pOscType;
 	
 	// skip this if it isn't the response we're waiting for.
 	if (resp->reportId != SENSORHUB_COMMAND_RESP) return;
 	if (resp->command != SH2_CMD_GET_OSC_TYPE) return;
-	if (resp->commandSeq != pSh2->opData.getOscType.seq) return;
+	if (resp->commandSeq != sh2.opData.getOscType.seq) return;
 
 	// Read out data
-	pOscType = pSh2->opData.getOscType.pOscType;
+	pOscType = sh2.opData.getOscType.pOscType;
 	*pOscType = (sh2_OscType_t)resp->r[0];
 
 	// Complete this operation
-	opCompleted(unit, SH2_OK);
+	opCompleted(SH2_OK);
 
 	return;
 }
@@ -1968,13 +1754,11 @@ static void executableAdvertHdlr(void *cookie, uint8_t tag, uint8_t len, uint8_t
 
 static void executableDeviceHdlr(void *cookie, uint8_t *payload, uint16_t len, uint32_t timestamp)
 {
-	unsigned unit = (unsigned)cookie;
-	sh2_t *pSh2 = &sh2[unit];
     sh2_AsyncEvent_t event;
 
 	// Discard if length is bad
 	if (len != 1) {
-		pSh2->execBadPayload++;
+		sh2.execBadPayload++;
 		return;
 	}
 	
@@ -1982,12 +1766,12 @@ static void executableDeviceHdlr(void *cookie, uint8_t *payload, uint16_t len, u
 	case EXECUTABLE_DEVICE_RESP_RESET_COMPLETE:
         // Notify client that reset is complete.
         event.eventId = SH2_RESET;
-        if (pSh2->eventCallback) {
-            pSh2->eventCallback(pSh2->eventCallbackCookie, &event);
+        if (sh2.eventCallback) {
+            sh2.eventCallback(sh2.eventCallbackCookie, &event);
         }
 		break;
 	default:
-		pSh2->execBadPayload++;
+		sh2.execBadPayload++;
 		break;
 	}
 }

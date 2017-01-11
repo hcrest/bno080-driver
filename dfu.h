@@ -34,11 +34,10 @@ extern "C" {
 
 /**
  * Run DFU Process.
- * @param unit Which SensorHub to operate with.
  * @param firmware Represents the firmware to be downloaded.
  * @return Err code from sh2_err.h indicating whether DFU process completed successfully
  */
-int dfu(unsigned unit, const HcBin_t *firmware);
+int dfu(const HcBin_t *firmware);
 
 #ifdef __cplusplus
 }   // end of extern "C"
