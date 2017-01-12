@@ -1,12 +1,16 @@
 # SensorHub Driver for MCU Applications
 
-The files in the repository provide application-level SensorHub functionality.
+The files in this repository provide application-level SH-2 sensor hub functionality.
 
 To use this code, an application developer will need to:
 * Incorporate this code into a project.
-* Provide platform-level functions, as specified in SensorHubDev.h
-* Develop application logic to call the functions in SensorHub.h
+* Provide platform-level functions, as specified in sh2_hal.h
+* Develop application logic to call the functions in sh2.h
 
-See one of the following projects for more detailed instructions on using this library:
-* [sh1-example-nucleo](http://github.hcrest.com/hillcrest/sh1-example-nucleo)
-* [sh1-example-arduino](http://github.hcrest.com/hillcrest/sh1-example-arduino)
+More complete instruction can be found in the User's Guide:
+* [BNO080 driver User's Guide](https://github.com/hcrest/bno080-nucleo-demo/UserGuide.pdf)
+
+An example project based on this driver can be found here:
+* [bno080-nucleo-demo](https://github.com/hcrest/bno080-nucleo-demo)
+
+
