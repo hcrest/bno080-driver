@@ -531,9 +531,9 @@ static int decodeGyroIntegratedRV(sh2_SensorValue_t *value, const sh2_SensorEven
     value->un.gyroIntegratedRV.j = read16(&event->pReport[2]) * SCALE_Q(14);
     value->un.gyroIntegratedRV.k = read16(&event->pReport[4]) * SCALE_Q(14);
     value->un.gyroIntegratedRV.real = read16(&event->pReport[6]) * SCALE_Q(14);
-    value->un.gyroIntegratedRV.angVelX = read16(&event->pReport[8]) * SCALE_Q(12);
-    value->un.gyroIntegratedRV.angVelY = read16(&event->pReport[10]) * SCALE_Q(12);
-    value->un.gyroIntegratedRV.angVelZ = read16(&event->pReport[12]) * SCALE_Q(12);
+    value->un.gyroIntegratedRV.angVelX = read16(&event->pReport[8]) * SCALE_Q(10);
+    value->un.gyroIntegratedRV.angVelY = read16(&event->pReport[10]) * SCALE_Q(10);
+    value->un.gyroIntegratedRV.angVelZ = read16(&event->pReport[12]) * SCALE_Q(10);
 
     return SH2_OK;
 }
