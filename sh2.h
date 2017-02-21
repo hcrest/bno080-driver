@@ -145,6 +145,9 @@ extern "C" {
         SH2_ARVR_STABILIZED_RV = 0x28,
         SH2_ARVR_STABILIZED_GRV = 0x29,
         SH2_GYRO_INTEGRATED_RV = 0x2A,
+
+        // UPDATE to reflect greatest sensor id
+        SH2_MAX_SENSOR_ID = 0x2A,
     };
     typedef uint8_t sh2_SensorId_t;
 
