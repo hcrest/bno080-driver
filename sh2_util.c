@@ -21,10 +21,15 @@
 
 #include "sh2_util.h"
 
-uint32_t readu32(const uint8_t *p)
+uint8_t readu8(const uint8_t *p)
 {
-	uint32_t retval = p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
+	uint32_t retval = p[0];
 	return retval;
+}
+
+void writeu8(uint8_t * p, uint8_t value)
+{
+    *p = (uint8_t)(value & 0xFF);
 }
 
 uint16_t readu16(const uint8_t *p)
@@ -33,24 +38,39 @@ uint16_t readu16(const uint8_t *p)
 	return retval;
 }
 
-uint8_t readu8(const uint8_t *p)
+void writeu16(uint8_t * p, uint16_t value)
 {
-	uint32_t retval = p[0];
+    *p++ = (uint8_t)(value & 0xFF);
+    value >>= 8;
+    *p = (uint8_t)(value & 0xFF);
+}
+
+uint32_t readu32(const uint8_t *p)
+{
+	uint32_t retval = p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
 	return retval;
 }
 
-uint32_t readNu32(const uint8_t *p, uint8_t len)
+void writeu32(uint8_t * p, uint32_t value)
 {
-	if (len == 4) return readu32(p);
-	if (len == 2) return readu16(p);
-	if (len == 1) return readu8(p);
-	return 0x00000000;
+    *p++ = (uint8_t)(value & 0xFF);
+    value >>= 8;
+    *p++ = (uint8_t)(value & 0xFF);
+    value >>= 8;
+    *p++ = (uint8_t)(value & 0xFF);
+    value >>= 8;
+    *p = (uint8_t)(value & 0xFF);
 }
 
-int32_t read32(const uint8_t *p)
+int8_t read8(const uint8_t *p)
 {
-	int32_t retval = p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
+	int32_t retval = p[0];
 	return retval;
+}
+
+void write8(uint8_t * p, int8_t value)
+{
+    *p = (uint8_t)(value & 0xFF);
 }
 
 int16_t read16(const uint8_t *p)
@@ -59,8 +79,26 @@ int16_t read16(const uint8_t *p)
 	return retval;
 }
 
-int8_t read8(const uint8_t *p)
+void write16(uint8_t * p, int16_t value)
 {
-	int32_t retval = p[0];
+    *p++ = (uint8_t)(value & 0xFF);
+    value >>= 8;
+    *p = (uint8_t)(value & 0xFF);
+}
+
+int32_t read32(const uint8_t *p)
+{
+	int32_t retval = p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
 	return retval;
+}
+
+void write32(uint8_t * p, int32_t value)
+{
+    *p++ = (uint8_t)(value & 0xFF);
+    value >>= 8;
+    *p++ = (uint8_t)(value & 0xFF);
+    value >>= 8;
+    *p++ = (uint8_t)(value & 0xFF);
+    value >>= 8;
+    *p = (uint8_t)(value & 0xFF);
 }
