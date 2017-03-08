@@ -73,6 +73,11 @@ typedef struct sh2_Op_s {
 #define FEAT_ALWAYS_ON_ENABLED           (8)
 #define FEAT_ALWAYS_ON_DISABLED          (0)
 
+#ifdef _MSC_VER
+#define __packed
+#pragma pack(push, 1)
+#endif
+
 // GET_FEATURE_REQ
 #define SENSORHUB_GET_FEATURE_REQ    (0xFE)
 typedef __packed struct {
@@ -273,6 +278,11 @@ typedef __packed struct {
 	uint8_t reportId;
 	uint8_t sensorId;
 } ForceFlushResp_t;
+
+
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif
 
 typedef struct sh2_s {
 	uint8_t controlChan;
