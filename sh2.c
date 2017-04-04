@@ -73,21 +73,25 @@ typedef struct sh2_Op_s {
 #define FEAT_ALWAYS_ON_ENABLED           (8)
 #define FEAT_ALWAYS_ON_DISABLED          (0)
 
-#ifdef _MSC_VER
-#define __packed
+#if defined(_MSC_VER)
+#define PACKED_STRUCT struct
 #pragma pack(push, 1)
+#elif defined(__GNUC__)
+#define PACKED_STRUCT struct __attribute__((packed))
+#else 
+#define PACKED_STRUCT __packed struct
 #endif
 
 // GET_FEATURE_REQ
 #define SENSORHUB_GET_FEATURE_REQ    (0xFE)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t featureReportId;
 } GetFeatureReq_t;
 
 // SENSORHUB_SET_FEATURE_CMD
 #define SENSORHUB_SET_FEATURE_CMD    (0xFD)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;             // 0xFD
 	uint8_t featureReportId;      // sensor id
 	uint8_t flags;                // FEAT_... values
@@ -99,7 +103,7 @@ typedef __packed struct {
 
 // SENSORHUB_GET_FEATURE_RESP
 #define SENSORHUB_GET_FEATURE_RESP   (0xFC)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t featureReportId;      // sensor id
 	uint8_t flags;                // FEAT_... values
@@ -110,27 +114,27 @@ typedef __packed struct {
 } GetFeatureResp_t;
 
 #define SENSORHUB_BASE_TIMESTAMP_REF (0xFB)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint32_t timebase;
 } BaseTimestampRef_t;
 
 #define SENSORHUB_TIMESTAMP_REBASE   (0xFA)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	int32_t timebase;
 } TimestampRebase_t;
 
 // SENSORHUB_PROD_ID_REQ
 #define SENSORHUB_PROD_ID_REQ        (0xF9)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;  
 	uint8_t reserved;
 } ProdIdReq_t;
 
 // SENSORHUB_PROD_ID_RESP
 #define SENSORHUB_PROD_ID_RESP       (0xF8)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t resetCause;
 	uint8_t swVerMajor;
@@ -144,7 +148,7 @@ typedef __packed struct {
 
 // SENSORHUB_FRS_WRITE_REQ
 #define SENSORHUB_FRS_WRITE_REQ      (0xF7)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t reserved;
 	uint16_t length;
@@ -153,7 +157,7 @@ typedef __packed struct {
 
 // SENSORHUB_FRS_WRITE_DATA_REQ
 #define SENSORHUB_FRS_WRITE_DATA_REQ (0xF6)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t reserved;
 	uint16_t offset;
@@ -177,7 +181,7 @@ typedef __packed struct {
 
 // SENSORHUB_FRS_WRITE_RESP
 #define SENSORHUB_FRS_WRITE_RESP     (0xF5)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t status;
 	uint16_t wordOffset;
@@ -185,7 +189,7 @@ typedef __packed struct {
 
 // RESP_FRS_READ_REQ
 #define SENSORHUB_FRS_READ_REQ       (0xF4)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t reserved;
 	uint16_t readOffset;
@@ -212,7 +216,7 @@ typedef __packed struct {
 
 // SENSORHUB_FRS_READ_RESP
 #define SENSORHUB_FRS_READ_RESP      (0xF3)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t len_status;  // See FRS_READ... macros above
 	uint16_t wordOffset;
@@ -247,7 +251,7 @@ typedef __packed struct {
 
 // SENSORHUB_COMMAND_REQ
 #define SENSORHUB_COMMAND_REQ        (0xF2)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t seq;
 	uint8_t command;
@@ -256,7 +260,7 @@ typedef __packed struct {
 
 // SENSORHUB_COMMAND_RESP
 #define SENSORHUB_COMMAND_RESP       (0xF1)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t seq;
 	uint8_t command;
@@ -267,14 +271,14 @@ typedef __packed struct {
 
 // SENSORHUB_FORCE_SENSOR_FLUSH
 #define SENSORHUB_FORCE_SENSOR_FLUSH (0xF0)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t sensorId;
 } ForceFlushReq_t;
 
 // SENSORHUB_FLUSH_COMPLETED    
 #define SENSORHUB_FLUSH_COMPLETED    (0xEF)
-typedef __packed struct {
+typedef PACKED_STRUCT {
 	uint8_t reportId;
 	uint8_t sensorId;
 } ForceFlushResp_t;
