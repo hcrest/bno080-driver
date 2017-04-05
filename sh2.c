@@ -1655,6 +1655,7 @@ static int calConfigStart(void)
 	req.p[0] = (sh2.opData.calConfig.sensors & SH2_CAL_ACCEL) ? 1 : 0; // accel cal
 	req.p[1] = (sh2.opData.calConfig.sensors & SH2_CAL_GYRO)  ? 1 : 0; // gyro cal
 	req.p[2] = (sh2.opData.calConfig.sensors & SH2_CAL_MAG)   ? 1 : 0; // mag cal
+	req.p[4] = (sh2.opData.calConfig.sensors & SH2_CAL_PLANAR) ? 1 : 0; // planar cal
 	
 	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
     opTxDone();

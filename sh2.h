@@ -522,6 +522,7 @@ extern "C" {
     #define SH2_CAL_ACCEL (0x01)
     #define SH2_CAL_GYRO  (0x02)
     #define SH2_CAL_MAG   (0x04)
+    #define SH2_CAL_PLANAR (0x08)
 
     /**
      * @brief Enable/Disable dynamic calibration for certain sensors
