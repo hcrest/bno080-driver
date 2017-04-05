@@ -422,7 +422,7 @@ extern "C" {
      * 
      * @param  recordId Which FRS Record to retrieve.
      * @param  pData pointer to buffer to receive the results
-     * @param  words number of 16-bit words to receive.
+     * @param  words number of 32-bit words to receive.
      * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
      */
     int sh2_getFrs(uint16_t recordId, uint32_t *pData, uint16_t *words);
@@ -432,7 +432,7 @@ extern "C" {
      * 
      * @param  recordId Which FRS Record to set.
      * @param  pData pointer to buffer containing the new data.
-     * @param  words number of 16-bit words to write.
+     * @param  words number of 32-bit words to write.
      * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
      */
     int sh2_setFrs(uint16_t recordId, uint32_t *pData, uint16_t words);
