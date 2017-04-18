@@ -33,12 +33,13 @@ void writeu8(uint8_t * buffer, uint8_t value);
 uint16_t readu16(const uint8_t * buffer);
 void writeu16(uint8_t * buffer, uint16_t value);
 uint32_t readu32(const uint8_t * buffer);
-uint32_t readu32be(const uint8_t * buffer);
 void writeu32(uint8_t * buffer, uint32_t value);
-uint32_t readNu32(const uint8_t * buffer, uint8_t len);
 
 int8_t read8(const uint8_t * buffer);
+void write8(uint8_t * buffer, int8_t value);
 int16_t read16(const uint8_t * buffer);
+void write16(uint8_t * buffer, int16_t value);
 int32_t read32(const uint8_t * buffer);
+void write32(uint8_t * buffer, int32_t value);
 
 #endif
