@@ -661,6 +661,10 @@ int sh2_getMetadata(sh2_SensorId_t sensorId, sh2_SensorMetadata_t *pData)
 
 int sh2_getFrs(uint16_t recordId, uint32_t *pData, uint16_t *words)
 {
+    if ((pData == 0) || (words == 0)) {
+        return SH2_ERR_BAD_PARAM;
+    }
+    
 	// Store params for this op
 	sh2.opData.getFrs.frsType = recordId;
 	sh2.opData.getFrs.pData = pData;
@@ -673,6 +677,13 @@ int sh2_getFrs(uint16_t recordId, uint32_t *pData, uint16_t *words)
 
 int sh2_setFrs(uint16_t recordId, uint32_t *pData, uint16_t words)
 {
+    if (pData == 0) {
+        return SH2_ERR_BAD_PARAM;
+    }
+    if (words == 0) {
+        return SH2_OK;
+    }
+    
 	sh2.opData.setFrs.frsType = recordId;
 	sh2.opData.setFrs.pData = pData;
 	sh2.opData.setFrs.words = words;
@@ -1321,14 +1332,16 @@ static void getFrsRx(const uint8_t *payload, uint16_t len)
 	uint16_t offset = resp->wordOffset;
 	
 	// store first word, if we have room
-	if (offset <= *(sh2.opData.getFrs.pWords)) {
+	if ((*(sh2.opData.getFrs.pWords) == 0) ||
+        (offset <= *(sh2.opData.getFrs.pWords))) {
 		sh2.opData.getFrs.pData[offset] = resp->data0;
 		sh2.opData.getFrs.lastOffset = offset;
 	}
 
 	// store second word if there is one and we have room
 	if ((FRS_READ_DATALEN(resp->len_status) == 2)  &&
-	    (offset <= *(sh2.opData.getFrs.pWords))) {
+	    ((*(sh2.opData.getFrs.pWords) == 0) ||
+         (offset <= *(sh2.opData.getFrs.pWords)))) {
 		sh2.opData.getFrs.pData[offset+1] = resp->data1;
 		sh2.opData.getFrs.lastOffset = offset+1;
 	}
