@@ -74,12 +74,6 @@ extern "C" {
 
     typedef void (sh2_SensorCallback_t)(void * cookie, sh2_SensorEvent_t *pEvent);
 
-    typedef struct sh2_OpEvent {
-        int status;
-    } sh2_OpEvent_t;
-
-    typedef void (sh2_OpCallback_t)(void *cookie, sh2_OpEvent_t *pEvent);
-
     /**
      * @brief Product Id value
      *

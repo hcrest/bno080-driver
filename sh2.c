@@ -317,7 +317,7 @@ typedef struct sh2_s {
 
 	const sh2_Op_t *pOp;
 
-	sh2_OpEvent_t opEvent;
+    int opStatus;
 
 	uint32_t frsData[MAX_FRS_WORDS];
 	uint16_t frsDataLen;
@@ -1044,6 +1044,9 @@ static int opStart(const sh2_Op_t *pOp)
 
 	// Clear operation in progress
 	sh2.pOp = 0;
+
+    // Get return status from opStatus
+    rc = sh2.opStatus;
 	
 	return rc;
 }
@@ -1065,7 +1068,7 @@ static void opRx(const uint8_t *payload, uint16_t len)
 static int opCompleted(int status)
 {
 	// Record status
-	sh2.opEvent.status = status;
+	sh2.opStatus = status;
 
     // Block the calling thread until the operation completes.
     sh2_hal_unblock();
