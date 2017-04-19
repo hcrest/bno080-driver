@@ -248,6 +248,7 @@ typedef PACKED_STRUCT {
 #define     SH2_SYNC_DISABLE_EXT_SYNC      2
 #define SH2_CMD_DCD_SAVE               9
 #define SH2_CMD_GET_OSC_TYPE           10
+#define SH2_CMD_CLEAR_DCD_AND_RESET    11
 
 // SENSORHUB_COMMAND_REQ
 #define SENSORHUB_COMMAND_REQ        (0xF2)
@@ -388,6 +389,7 @@ typedef struct sh2_s {
 // --- Forward Declarations -----------------------------------------------
 static int16_t toQ14(double x);
 static void setupCmdParams(uint8_t cmd, uint8_t p[9]);
+static void setupCmd0(uint8_t cmd);
 static void setupCmd1(uint8_t cmd, uint8_t p0);
 	
 static void executableAdvertHdlr(void *cookie, uint8_t tag, uint8_t len, uint8_t *val);
@@ -826,6 +828,12 @@ int sh2_flush(sh2_SensorId_t sensorId)
 	return opStart(&forceFlushOp);
 }
 
+int sh2_clearDcdAndReset(void)
+{
+	setupCmd0(SH2_CMD_CLEAR_DCD_AND_RESET);
+	return opStart(&sendCmdOp);
+}
+
 // --- Private utility functions --------------------------------------------------------------
 
 static int16_t toQ14(double x)
@@ -846,7 +854,16 @@ static void setupCmdParams(uint8_t cmd, uint8_t p[9])
 	       sizeof(sh2.opData.sendCmd.req.p));
 }
 
-// Set up command to send
+// Set up command with no params
+static void setupCmd0(uint8_t cmd)
+{
+	uint8_t p[9];
+
+	memset(p, 0, sizeof(p));
+	setupCmdParams(cmd, p);
+}
+
+// Set up command with 1 param
 static void setupCmd1(uint8_t cmd, uint8_t p0)
 {
 	uint8_t p[9];

@@ -566,6 +566,13 @@ extern "C" {
      */
     int sh2_flush(sh2_SensorId_t sensorId);
 
+    /**
+     * @brief Command clear DCD in RAM, then reset sensor hub.
+     * 
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_clearDcdAndReset(void);
+
 #ifdef __cplusplus
 }   // end of extern "C"
 #endif
