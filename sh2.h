@@ -527,6 +527,13 @@ extern "C" {
      */
     int sh2_setCalConfig(uint8_t sensors);
 
+    /**
+     * @brief Get dynamic calibration configuration settings.
+     * 
+     * @param  pSensors pointer to Bit mask, set on return.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_getCalConfig(uint8_t *pSensors);
 
     /**
      * @brief Synchronize Rotation Vector reports at this moment.

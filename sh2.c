@@ -371,6 +371,10 @@ typedef struct sh2_s {
 			uint8_t seq;
 		} calConfig;
 		struct {
+			uint8_t *pSensors;
+			uint8_t seq;
+		} getCalConfig;
+		struct {
 			sh2_SensorId_t sensorId;
 		} forceFlush;
         struct {
@@ -496,6 +500,14 @@ static void calConfigRx(const uint8_t *payload, uint16_t len);
 const sh2_Op_t calConfigOp = {
 	.start = calConfigStart,
 	.rx = calConfigRx,
+};
+
+// get cal config operation
+static int getCalConfigStart(void);
+static void getCalConfigRx(const uint8_t *payload, uint16_t len);
+const sh2_Op_t getCalConfigOp = {
+	.start = getCalConfigStart,
+	.rx = getCalConfigRx,
 };
 
 // force flush operation
@@ -774,6 +786,17 @@ int sh2_setCalConfig(uint8_t sensors)
 	sh2.opData.calConfig.sensors = sensors;
 
 	return opStart(&calConfigOp);
+}
+
+int sh2_getCalConfig(uint8_t *pSensors)
+{
+    if (pSensors == 0) {
+        return SH2_ERR_BAD_PARAM;
+    }
+    
+	sh2.opData.getCalConfig.pSensors = pSensors;
+
+	return opStart(&getCalConfigOp);
 }
 
 int sh2_syncRvNow(void)
@@ -1693,6 +1716,58 @@ static void calConfigRx(const uint8_t *payload, uint16_t len)
 	if (resp->r[0] != 0) {
 		rc = SH2_ERR_HUB;
 	}
+	
+	// Complete this operation
+	opCompleted(rc);
+
+	return;
+}
+
+// --- Operation: cal config --------------
+
+static int getCalConfigStart(void)
+{
+	int rc = SH2_OK;
+	CommandReq_t req;
+	
+	// Create a command sequence number for this command
+	sh2.opData.getCalConfig.seq = sh2.nextCmdSeq++;
+	
+	// set up request to issue
+	memset(&req, 0, sizeof(req));
+	req.reportId = SENSORHUB_COMMAND_REQ;
+	req.seq = sh2.opData.getCalConfig.seq;
+	req.command = SH2_CMD_ME_CAL;
+	req.p[3] = 0x01;  // Get ME Cal settings
+	
+	rc = shtp_send(sh2.controlChan, (uint8_t *)&req, sizeof(req));
+    opTxDone();
+
+	return rc;
+}
+
+static void getCalConfigRx(const uint8_t *payload, uint16_t len)
+{
+	int rc = SH2_OK;
+	CommandResp_t *resp = (CommandResp_t *)payload;
+	
+	// skip this if it isn't the right response
+	if (resp->reportId != SENSORHUB_COMMAND_RESP) return;
+	if (resp->command != SH2_CMD_ME_CAL) return;
+	if (resp->commandSeq != sh2.opData.getCalConfig.seq) return;
+
+	// If return status is error, return error to invoker
+	if (resp->r[0] != 0) {
+		rc = SH2_ERR_HUB;
+	}
+
+    // Unload results into pSensors
+    uint8_t sensors = 0;
+    if (resp->r[1]) sensors |= SH2_CAL_ACCEL;
+    if (resp->r[2]) sensors |= SH2_CAL_GYRO;
+    if (resp->r[3]) sensors |= SH2_CAL_MAG;
+    if (resp->r[4]) sensors |= SH2_CAL_PLANAR;
+    *(sh2.opData.getCalConfig.pSensors) = sensors;
 	
 	// Complete this operation
 	opCompleted(rc);
