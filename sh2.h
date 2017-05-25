@@ -269,8 +269,9 @@ extern "C" {
      * See the SH-2 Reference Manual for more detail.
      */
     typedef enum {
-        SH2_OSC_INTERNAL = 0,
-        SH2_OSC_EXTERNAL = 1,
+        SH2_OSC_INTERNAL    = 0,
+        SH2_OSC_EXT_CRYSTAL = 1,
+        SH2_OSC_EXT_CLOCK   = 2,
     } sh2_OscType_t;
 
     // FRS Record Ids
@@ -534,21 +535,6 @@ extern "C" {
      * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
      */
     int sh2_getCalConfig(uint8_t *pSensors);
-
-    /**
-     * @brief Synchronize Rotation Vector reports at this moment.
-     * 
-     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
-     */
-    int sh2_syncRvNow(void);
-
-    /**
-     * @brief Enable external synchronization of rotation vector reports
-     * 
-     * @param  enabled enable or disable external synchronization.
-     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
-     */
-    int sh2_setExtSync(bool enabled);
 
     /**
      * @brief Configure automatic saving of dynamic calibration data.

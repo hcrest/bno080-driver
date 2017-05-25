@@ -242,10 +242,10 @@ typedef PACKED_STRUCT {
 #define SH2_CMD_FRS                    5
 #define SH2_CMD_DCD                    6
 #define SH2_CMD_ME_CAL                 7
-#define SH2_CMD_SYNC                   8
-#define     SH2_SYNC_SYNC_NOW              0
-#define     SH2_SYNC_ENABLE_EXT_SYNC       1
-#define     SH2_SYNC_DISABLE_EXT_SYNC      2
+#define SH2_CMD_SYNC                   8     // Obsolete
+#define     SH2_SYNC_SYNC_NOW              0 // Obsolete
+#define     SH2_SYNC_ENABLE_EXT_SYNC       1 // Obsolete
+#define     SH2_SYNC_DISABLE_EXT_SYNC      2 // Obsolete
 #define SH2_CMD_DCD_SAVE               9
 #define SH2_CMD_GET_OSC_TYPE           10
 #define SH2_CMD_CLEAR_DCD_AND_RESET    11
@@ -724,14 +724,27 @@ int sh2_getCounts(sh2_SensorId_t sensorId, sh2_Counts_t *pCounts)
 
 int sh2_clearCounts(sh2_SensorId_t sensorId)
 {
-	setupCmd1(SH2_CMD_COUNTS, SH2_COUNTS_CLEAR_COUNTS);
+    uint8_t p[9];
+
+    memset(p, 0, sizeof(p));
+    p[0] = SH2_COUNTS_CLEAR_COUNTS;
+    p[1] = sensorId;
+    setupCmdParams(SH2_CMD_COUNTS, p);
+
 	return opStart(&sendCmdOp);
 }
 
 int sh2_setTareNow(uint8_t axes,    // SH2_TARE_X | SH2_TARE_Y | SH2_TARE_Z
                    sh2_TareBasis_t basis)
 {
-	setupCmd1(SH2_CMD_TARE, SH2_TARE_TARE_NOW);
+    uint8_t p[9];
+
+    memset(p, 0, sizeof(p));
+    p[0] = SH2_TARE_TARE_NOW;
+    p[1] = axes;
+    p[2] = basis;
+    setupCmdParams(SH2_CMD_TARE, p);
+
 	return opStart(&sendCmdOp);
 }
 
@@ -799,19 +812,6 @@ int sh2_getCalConfig(uint8_t *pSensors)
 	sh2.opData.getCalConfig.pSensors = pSensors;
 
 	return opStart(&getCalConfigOp);
-}
-
-int sh2_syncRvNow(void)
-{
-	setupCmd1(SH2_CMD_SYNC, SH2_SYNC_SYNC_NOW);
-	return opStart(&sendCmdOp);
-}
-
-int sh2_setExtSync(bool enabled)
-{
-	setupCmd1(SH2_CMD_SYNC,
-	          enabled ? SH2_SYNC_ENABLE_EXT_SYNC : SH2_SYNC_DISABLE_EXT_SYNC);
-	return opStart(&sendCmdOp);
 }
 
 int sh2_setDcdAutoSave(bool enabled)
@@ -1001,6 +1001,10 @@ static void sensorhubInputHdlr(uint8_t *payload, uint16_t len, uint32_t timestam
 
 				referenceDelta += rpt->timebase;
 			}
+			else if (reportId == SENSORHUB_FLUSH_COMPLETED) {
+                // Route this as if it arrived on command channel.
+                opRx(payload+cursor, reportLen);
+            }
 			else {
                 uint8_t *pReport = payload+cursor;
                 uint16_t delay = ((pReport[2] & 0xFC) << 6) + pReport[3];
@@ -1538,7 +1542,7 @@ static void getErrorsRx(const uint8_t *payload, uint16_t len)
 		opCompleted(SH2_OK);
 	} else {
 		// Copy data for invoker.
-		unsigned index = sh2.opData.getErrors.errsRead;
+		unsigned int index = sh2.opData.getErrors.errsRead;
 		if (index < *(sh2.opData.getErrors.pNumErrors)) {
 			// We have room for this one.
 			sh2.opData.getErrors.pErrors[index].severity = resp->r[0];

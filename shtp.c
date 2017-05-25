@@ -175,7 +175,7 @@ int shtp_init(void)
     shtp.inCursor = 0;
 
     // Init SHTP Apps
-    for (unsigned n = 0; n < SH2_MAX_APPS; n++) {
+    for (unsigned int n = 0; n < SH2_MAX_APPS; n++) {
         shtp.app[n].guid = 0xFFFFFFFF;
         strcpy(shtp.app[n].appName, "");
     }
@@ -183,7 +183,7 @@ int shtp_init(void)
     shtp.advertPhase = ADVERT_NEEDED;
 
     // Init App Listeners
-    for (unsigned n = 0; n < SH2_MAX_APPS; n++) {
+    for (unsigned int n = 0; n < SH2_MAX_APPS; n++) {
         strcpy(shtp.appListener[n].appName, "");
         shtp.appListener[n].callback = 0;
         shtp.appListener[n].cookie = 0;
@@ -191,7 +191,7 @@ int shtp_init(void)
     shtp.nextAppListener = 0;
 
     // Init the shtp channels
-    for (unsigned n = 0; n < SH2_MAX_CHANS; n++) {
+    for (unsigned int n = 0; n < SH2_MAX_CHANS; n++) {
         shtp.chan[n].nextOutSeq = 0;
         shtp.chan[n].nextInSeq = 0;
         shtp.chan[n].guid = 0xFFFFFFFF;
@@ -202,7 +202,7 @@ int shtp_init(void)
     }
 
     // Init registered channel listeners array
-    for (unsigned n = 0; n < SH2_MAX_CHANS; n++) {
+    for (unsigned int n = 0; n < SH2_MAX_CHANS; n++) {
         strcpy(shtp.chanListener[n].appName, "");
         strcpy(shtp.chanListener[n].chanName, "");
         shtp.chanListener[n].cookie = 0;

@@ -194,7 +194,7 @@ static void appendCrc(uint8_t *packet, uint8_t len)
 // I/O Utility functions
 static int dfuSend(uint8_t* pData, uint32_t len)
 {
-    unsigned retries = 0;
+    unsigned int retries = 0;
     int status = SH2_OK;
     uint8_t ack;
 
