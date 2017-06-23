@@ -8,7 +8,7 @@ To use this code, an application developer will need to:
 * Develop application logic to call the functions in sh2.h
 
 More complete instruction can be found in the User's Guide:
-* [BNO080 driver User's Guide](https://github.com/hcrest/bno080-nucleo-demo/UserGuide.pdf)
+* [BNO080 driver User's Guide](UserGuide.pdf)
 
 An example project based on this driver can be found here:
 * [bno080-nucleo-demo](https://github.com/hcrest/bno080-nucleo-demo)
