@@ -23,7 +23,7 @@
 
 uint8_t readu8(const uint8_t *p)
 {
-	uint32_t retval = p[0];
+	uint8_t retval = p[0];
 	return retval;
 }
 
@@ -64,7 +64,7 @@ void writeu32(uint8_t * p, uint32_t value)
 
 int8_t read8(const uint8_t *p)
 {
-	int32_t retval = p[0];
+	int8_t retval = p[0];
 	return retval;
 }
 
@@ -75,7 +75,7 @@ void write8(uint8_t * p, int8_t value)
 
 int16_t read16(const uint8_t *p)
 {
-	int32_t retval = p[0] | (p[1] << 8);
+	int16_t retval = p[0] | (p[1] << 8);
 	return retval;
 }
 
