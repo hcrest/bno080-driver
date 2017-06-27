@@ -675,7 +675,7 @@ int sh2_getMetadata(sh2_SensorId_t sensorId, sh2_SensorMetadata_t *pData)
 
 int sh2_getFrs(uint16_t recordId, uint32_t *pData, uint16_t *words)
 {
-    if (pData == 0) {
+    if ((pData == 0) || (words == 0)) {
         return SH2_ERR_BAD_PARAM;
     }
     
