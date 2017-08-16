@@ -49,6 +49,8 @@ typedef void shtp_SendCallback_t(void *cookie);
 
 int shtp_init(void);
 
+void shtp_start(bool dfu);
+    
 int shtp_listenChan(const char * app, const char * chan,
                     shtp_Callback_t *callback, void * cookie);
 

@@ -556,6 +556,9 @@ int sh2_initialize(sh2_EventCallback_t *eventCallback, void *resetCookie)
   
 	sh2.nextCmdSeq = 0;
 
+    // init SHTP layer
+    shtp_init();
+
 	// Register SH2 handlers
 	shtp_listenAdvert("sensorhub", sensorhubAdvertHdlr, NULL);
 	shtp_listenChan("sensorhub", "control", sensorhubControlHdlr, NULL);
@@ -568,7 +571,9 @@ int sh2_initialize(sh2_EventCallback_t *eventCallback, void *resetCookie)
 	// Register EXECUTABLE handlers
 	shtp_listenAdvert("executable", executableAdvertHdlr, NULL);
 	shtp_listenChan("executable", "device", executableDeviceHdlr, NULL);
-    
+
+    // Start SHTP operations (resets sensor hub in non-dfu mode)
+    shtp_start(false);
 
 	return SH2_OK;
 }

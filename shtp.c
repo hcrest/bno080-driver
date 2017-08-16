@@ -157,9 +157,6 @@ static uint8_t advertise[] = {
 
 int shtp_init(void)
 {
-    // Reset device for SH2 operation, registering rx callback
-    sh2_hal_reset(false, shtp_onRx, NULL);
-
     // Init stats
     shtp.tooLargePayloads = 0;
     shtp.txDiscards = 0;
@@ -220,6 +217,12 @@ int shtp_init(void)
     shtp_listenChan("SHTP", "command", shtpCmdListener, NULL);
 
     return SH2_OK;
+}
+
+void shtp_start(bool dfu)
+{
+    // Reset device, registering rx callback
+    sh2_hal_reset(dfu, shtp_onRx, NULL);
 }
 
 // Register a listener for advertisements related to one app
