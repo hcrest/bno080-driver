@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-16 Hillcrest Laboratories, Inc.
+ * Copyright 2015-17 Hillcrest Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License and 
@@ -90,10 +90,10 @@ extern "C" {
         uint8_t reserved1;
     } sh2_ProductId_t;
 
-    #define SH2_NUM_PROD_ID_ENTRIES (2)
+    #define SH2_MAX_PROD_ID_ENTRIES (5)
     typedef struct sh2_ProductIds_s {
-        sh2_ProductId_t entry[SH2_NUM_PROD_ID_ENTRIES];
-        uint8_t nextEntry;
+        sh2_ProductId_t entry[SH2_MAX_PROD_ID_ENTRIES];
+        uint8_t numEntries;
     } sh2_ProductIds_t;
 
     /**
@@ -274,80 +274,97 @@ extern "C" {
         SH2_OSC_EXT_CLOCK   = 2,
     } sh2_OscType_t;
 
+    /**
+     * @brief Calibration result
+     * 
+     * See the SH-2 Reference Manual, Finish Calibration Response.
+     */
+    typedef enum {
+        SH2_CAL_SUCCESS = 0,
+        SH2_CAL_NO_ZRO,
+        SH2_CAL_NO_STATIONARY_DETECTION,
+        SH2_CAL_ROTATION_OUTSIDE_SPEC,
+        SH2_CAL_ZRO_OUTSIDE_SPEC,
+        SH2_CAL_ZGO_OUTSIDE_SPEC,
+        SH2_CAL_GYRO_GAIN_OUTSIDE_SPEC,
+        SH2_CAL_GYRO_PERIOD_OUTSIDE_SPEC,
+        SH2_CAL_GYRO_DROPS_OUTSIDE_SPEC,
+    } sh2_CalStatus_t;
+
     // FRS Record Ids
-    #define STATIC_CALIBRATION_AGM                   (0x7979)
-    #define NOMINAL_CALIBRATION                      (0x4D4D)
-    #define STATIC_CALIBRATION_SRA                   (0x8A8A)
-    #define NOMINAL_CALIBRATION_SRA                  (0x4E4E)
-    #define DYNAMIC_CALIBRATION                      (0x1F1F)
-    #define ME_POWER_MGMT                            (0xD3E2)
-    #define SYSTEM_ORIENTATION                       (0x2D3E)
-    #define ACCEL_ORIENTATION                        (0x2D41)
-    #define SCREEN_ACCEL_ORIENTATION                 (0x2D43)
-    #define GYROSCOPE_ORIENTATION                    (0x2D46)
-    #define MAGNETOMETER_ORIENTATION                 (0x2D4C)
-    #define ARVR_STABILIZATION_RV                    (0x3E2D)
-    #define ARVR_STABILIZATION_GRV                   (0x3E2E)
-    #define TAP_DETECT_CONFIG                        (0xC269)
-    #define SIG_MOTION_DETECT_CONFIG                 (0xC274)
-    #define SHAKE_DETECT_CONFIG                      (0x7D7D)
-    #define MAX_FUSION_PERIOD                        (0xD7D7)
-    #define SERIAL_NUMBER                            (0x4B4B)
-    #define ES_PRESSURE_CAL                          (0x39AF)
-    #define ES_TEMPERATURE_CAL                       (0x4D20)
-    #define ES_HUMIDITY_CAL                          (0x1AC9)
-    #define ES_AMBIENT_LIGHT_CAL                     (0x39B1)
-    #define ES_PROXIMITY_CAL                         (0x4DA2)
-    #define ALS_CAL                                  (0xD401)
-    #define PROXIMITY_SENSOR_CAL                     (0xD402)
-    #define PICKUP_DETECTOR_CONFIG                   (0x1B2A)
-    #define FLIP_DETECTOR_CONFIG                     (0xFC94)
-    #define STABILITY_DETECTOR_CONFIG                (0xED85)
-    #define ACTIVITY_TRACKER_CONFIG                  (0xED88)
-    #define SLEEP_DETECTOR_CONFIG                    (0xED87)
-    #define TILT_DETECTOR_CONFIG                     (0xED89)
-    #define POCKET_DETECTOR_CONFIG                   (0xEF27)
-    #define CIRCLE_DETECTOR_CONFIG                   (0xEE51)
-    #define USER_RECORD                              (0x74B4)
-    #define ME_TIME_SOURCE_SELECT                    (0xD403)
-    #define UART_FORMAT                              (0xA1A1)
-    #define GYRO_INTEGRATED_RV_CONFIG                (0xA1A2)
-    #define FRS_ID_META_RAW_ACCELEROMETER            (0xE301)
-    #define FRS_ID_META_ACCELEROMETER                (0xE302)
-    #define FRS_ID_META_LINEAR_ACCELERATION          (0xE303)
-    #define FRS_ID_META_GRAVITY                      (0xE304)
-    #define FRS_ID_META_RAW_GYROSCOPE                (0xE305)
-    #define FRS_ID_META_GYROSCOPE_CALIBRATED         (0xE306)
-    #define FRS_ID_META_GYROSCOPE_UNCALIBRATED       (0xE307)
-    #define FRS_ID_META_RAW_MAGNETOMETER             (0xE308)
-    #define FRS_ID_META_MAGNETIC_FIELD_CALIBRATED    (0xE309)
-    #define FRS_ID_META_MAGNETIC_FIELD_UNCALIBRATED  (0xE30A)
-    #define FRS_ID_META_ROTATION_VECTOR              (0xE30B)
-    #define FRS_ID_META_GAME_ROTATION_VECTOR         (0xE30C)
-    #define FRS_ID_META_GEOMAGNETIC_ROTATION_VECTOR  (0xE30D)
-    #define FRS_ID_META_PRESSURE                     (0xE30E)
-    #define FRS_ID_META_AMBIENT_LIGHT                (0xE30F)
-    #define FRS_ID_META_HUMIDITY                     (0xE310)
-    #define FRS_ID_META_PROXIMITY                    (0xE311)
-    #define FRS_ID_META_TEMPERATURE                  (0xE312)
-    #define FRS_ID_META_TAP_DETECTOR                 (0xE313)
-    #define FRS_ID_META_STEP_DETECTOR                (0xE314)
-    #define FRS_ID_META_STEP_COUNTER                 (0xE315)
-    #define FRS_ID_META_SIGNIFICANT_MOTION           (0xE316)
-    #define FRS_ID_META_STABILITY_CLASSIFIER         (0xE317)
-    #define FRS_ID_META_SHAKE_DETECTOR               (0xE318)
-    #define FRS_ID_META_FLIP_DETECTOR                (0xE319)
-    #define FRS_ID_META_PICKUP_DETECTOR              (0xE31A)
-    #define FRS_ID_META_STABILITY_DETECTOR           (0xE31B)
-    #define FRS_ID_META_PERSONAL_ACTIVITY_CLASSIFIER (0xE31C)
-    #define FRS_ID_META_SLEEP_DETECTOR               (0xE31D)
-    #define FRS_ID_META_TILT_DETECTOR                (0xE31E)
-    #define FRS_ID_META_POCKET_DETECTOR              (0xE31F)
-    #define FRS_ID_META_CIRCLE_DETECTOR              (0xE320)
-    #define FRS_ID_META_HEART_RATE_MONITOR           (0xE321)
-    #define FRS_ID_META_ARVR_STABILIZED_RV           (0xE322)
-    #define FRS_ID_META_ARVR_STABILIZED_GRV          (0xE323)
-    #define FRS_ID_META_GYRO_INTEGRATED_RV           (0xE324)
+#define STATIC_CALIBRATION_AGM                   (0x7979)
+#define NOMINAL_CALIBRATION                      (0x4D4D)
+#define STATIC_CALIBRATION_SRA                   (0x8A8A)
+#define NOMINAL_CALIBRATION_SRA                  (0x4E4E)
+#define DYNAMIC_CALIBRATION                      (0x1F1F)
+#define ME_POWER_MGMT                            (0xD3E2)
+#define SYSTEM_ORIENTATION                       (0x2D3E)
+#define ACCEL_ORIENTATION                        (0x2D41)
+#define SCREEN_ACCEL_ORIENTATION                 (0x2D43)
+#define GYROSCOPE_ORIENTATION                    (0x2D46)
+#define MAGNETOMETER_ORIENTATION                 (0x2D4C)
+#define ARVR_STABILIZATION_RV                    (0x3E2D)
+#define ARVR_STABILIZATION_GRV                   (0x3E2E)
+#define TAP_DETECT_CONFIG                        (0xC269)
+#define SIG_MOTION_DETECT_CONFIG                 (0xC274)
+#define SHAKE_DETECT_CONFIG                      (0x7D7D)
+#define MAX_FUSION_PERIOD                        (0xD7D7)
+#define SERIAL_NUMBER                            (0x4B4B)
+#define ES_PRESSURE_CAL                          (0x39AF)
+#define ES_TEMPERATURE_CAL                       (0x4D20)
+#define ES_HUMIDITY_CAL                          (0x1AC9)
+#define ES_AMBIENT_LIGHT_CAL                     (0x39B1)
+#define ES_PROXIMITY_CAL                         (0x4DA2)
+#define ALS_CAL                                  (0xD401)
+#define PROXIMITY_SENSOR_CAL                     (0xD402)
+#define PICKUP_DETECTOR_CONFIG                   (0x1B2A)
+#define FLIP_DETECTOR_CONFIG                     (0xFC94)
+#define STABILITY_DETECTOR_CONFIG                (0xED85)
+#define ACTIVITY_TRACKER_CONFIG                  (0xED88)
+#define SLEEP_DETECTOR_CONFIG                    (0xED87)
+#define TILT_DETECTOR_CONFIG                     (0xED89)
+#define POCKET_DETECTOR_CONFIG                   (0xEF27)
+#define CIRCLE_DETECTOR_CONFIG                   (0xEE51)
+#define USER_RECORD                              (0x74B4)
+#define ME_TIME_SOURCE_SELECT                    (0xD403)
+#define UART_FORMAT                              (0xA1A1)
+#define GYRO_INTEGRATED_RV_CONFIG                (0xA1A2)
+#define FRS_ID_META_RAW_ACCELEROMETER            (0xE301)
+#define FRS_ID_META_ACCELEROMETER                (0xE302)
+#define FRS_ID_META_LINEAR_ACCELERATION          (0xE303)
+#define FRS_ID_META_GRAVITY                      (0xE304)
+#define FRS_ID_META_RAW_GYROSCOPE                (0xE305)
+#define FRS_ID_META_GYROSCOPE_CALIBRATED         (0xE306)
+#define FRS_ID_META_GYROSCOPE_UNCALIBRATED       (0xE307)
+#define FRS_ID_META_RAW_MAGNETOMETER             (0xE308)
+#define FRS_ID_META_MAGNETIC_FIELD_CALIBRATED    (0xE309)
+#define FRS_ID_META_MAGNETIC_FIELD_UNCALIBRATED  (0xE30A)
+#define FRS_ID_META_ROTATION_VECTOR              (0xE30B)
+#define FRS_ID_META_GAME_ROTATION_VECTOR         (0xE30C)
+#define FRS_ID_META_GEOMAGNETIC_ROTATION_VECTOR  (0xE30D)
+#define FRS_ID_META_PRESSURE                     (0xE30E)
+#define FRS_ID_META_AMBIENT_LIGHT                (0xE30F)
+#define FRS_ID_META_HUMIDITY                     (0xE310)
+#define FRS_ID_META_PROXIMITY                    (0xE311)
+#define FRS_ID_META_TEMPERATURE                  (0xE312)
+#define FRS_ID_META_TAP_DETECTOR                 (0xE313)
+#define FRS_ID_META_STEP_DETECTOR                (0xE314)
+#define FRS_ID_META_STEP_COUNTER                 (0xE315)
+#define FRS_ID_META_SIGNIFICANT_MOTION           (0xE316)
+#define FRS_ID_META_STABILITY_CLASSIFIER         (0xE317)
+#define FRS_ID_META_SHAKE_DETECTOR               (0xE318)
+#define FRS_ID_META_FLIP_DETECTOR                (0xE319)
+#define FRS_ID_META_PICKUP_DETECTOR              (0xE31A)
+#define FRS_ID_META_STABILITY_DETECTOR           (0xE31B)
+#define FRS_ID_META_PERSONAL_ACTIVITY_CLASSIFIER (0xE31C)
+#define FRS_ID_META_SLEEP_DETECTOR               (0xE31D)
+#define FRS_ID_META_TILT_DETECTOR                (0xE31E)
+#define FRS_ID_META_POCKET_DETECTOR              (0xE31F)
+#define FRS_ID_META_CIRCLE_DETECTOR              (0xE320)
+#define FRS_ID_META_HEART_RATE_MONITOR           (0xE321)
+#define FRS_ID_META_ARVR_STABILIZED_RV           (0xE322)
+#define FRS_ID_META_ARVR_STABILIZED_GRV          (0xE323)
+#define FRS_ID_META_GYRO_INTEGRATED_RV           (0xE324)
 
 
     /***************************************************************************************
@@ -414,11 +431,12 @@ extern "C" {
     int sh2_getMetadata(sh2_SensorId_t sensorId, sh2_SensorMetadata_t *pData);
 
     /**
-     * @brief Get an FRS record
+     * @brief Get an FRS record.
      * 
      * @param  recordId Which FRS Record to retrieve.
      * @param  pData pointer to buffer to receive the results
-     * @param  words number of 32-bit words to receive.  (0 to read all avail.)
+     * @param[in] words Size of pData buffer, in 32-bit words.
+     * @param[out] words Number of 32-bit words retrieved.
      * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
      */
     int sh2_getFrs(uint16_t recordId, uint32_t *pData, uint16_t *words);
@@ -515,10 +533,10 @@ extern "C" {
     int sh2_getOscType(sh2_OscType_t *pOscType);
 
     // Flags for sensors field of sh_calConfig
-    #define SH2_CAL_ACCEL (0x01)
-    #define SH2_CAL_GYRO  (0x02)
-    #define SH2_CAL_MAG   (0x04)
-    #define SH2_CAL_PLANAR (0x08)
+#define SH2_CAL_ACCEL (0x01)
+#define SH2_CAL_GYRO  (0x02)
+#define SH2_CAL_MAG   (0x04)
+#define SH2_CAL_PLANAR (0x08)
 
     /**
      * @brief Enable/Disable dynamic calibration for certain sensors
@@ -558,6 +576,22 @@ extern "C" {
      * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
      */
     int sh2_clearDcdAndReset(void);
+
+    /**
+     * @brief Start simple self-calibration procedure.
+     * 
+     * @parameter interval_us sensor report interval, uS.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_startCal(uint32_t interval_us);
+
+    /**
+     * @brief Finish simple self-calibration procedure.
+     * 
+     * @parameter status contains calibration status code on return.
+     * @return SH2_OK (0), on success.  Negative value from sh2_err.h on error.
+     */
+    int sh2_finishCal(sh2_CalStatus_t *status);
 
 #ifdef __cplusplus
 }   // end of extern "C"
