@@ -99,6 +99,8 @@ typedef struct shtp_s {
     uint32_t tooLargePayloads;
     uint32_t txDiscards;
     uint32_t shortFragments;
+    uint32_t badRxChan;
+    uint32_t badTxChan;
     
     // transmit support
     uint16_t outMaxPayload;
@@ -161,6 +163,8 @@ int shtp_init(void)
     shtp.tooLargePayloads = 0;
     shtp.txDiscards = 0;
     shtp.shortFragments = 0;
+    shtp.badRxChan = 0;
+    shtp.badTxChan = 0;
 
     // Init transmit support
     shtp.outMaxPayload = SHTP_MAX_PAYLOAD_OUT;
@@ -277,6 +281,10 @@ int shtp_send(uint8_t chan, uint8_t *payload, uint16_t len)
     if (len > shtp.outMaxPayload) {
         return SH2_ERR_BAD_PARAM;
     }
+    if (chan >= SH2_MAX_CHANS) {
+        shtp.badTxChan++;
+        return SH2_ERR_BAD_PARAM;
+    }
     
     ret = txProcess(chan, payload, len);
 
@@ -308,6 +316,13 @@ static void rxAssemble(uint8_t *in, uint16_t len, uint32_t t_us)
     if (payloadLen < SHTP_HDR_LEN) {
       shtp.shortFragments++;
       return;
+    }
+
+    if ((chan >= SH2_MAX_CHANS) ||
+        (chan >= shtp.nextChanListener)) {
+        // Invalid channel id.
+        shtp.badRxChan++;
+        return;
     }
         
     // Discard earlier assembly in progress if the received data doesn't match it.
