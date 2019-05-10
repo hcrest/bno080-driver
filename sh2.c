@@ -884,7 +884,7 @@ int sh2_finishCal(sh2_CalStatus_t *status)
 
 static int16_t toQ14(double x)
 {
-    int16_t retval = (int16_t)(x * (2<<14));
+    int16_t retval = (int16_t)(x * (1<<14));
     
     return retval;
 }
