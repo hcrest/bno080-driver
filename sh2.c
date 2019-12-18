@@ -1129,6 +1129,7 @@ static int opStart(const sh2_Op_t *pOp)
         
         // Unregister this operation
         sh2.pOp = 0;
+        return rc;
     }
 
     // Block the calling thread until the operation completes.
