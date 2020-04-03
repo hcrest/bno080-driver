@@ -1133,13 +1133,13 @@ static int opStart(const sh2_Op_t *pOp)
     }
 
     // Block the calling thread until the operation completes.
-    sh2_hal_block();
+    bool timed_out = sh2_hal_block() != 0;
 
     // Clear operation in progress
     sh2.pOp = 0;
 
     // Get return status from opStatus
-    rc = sh2.opStatus;
+    rc = timed_out ? SH2_ERR_TIMEOUT : sh2.opStatus;
     
     return rc;
 }
