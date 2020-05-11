@@ -642,7 +642,7 @@ int sh2_setSensorConfig(sh2_SensorId_t sensorId, const sh2_SensorConfig_t *pConf
     return opStart(&setSensorConfigOp);
 }
 
-const static struct {
+static const struct {
     sh2_SensorId_t sensorId;
     uint16_t recordId;
 } sensorToRecordMap[] = {
@@ -686,7 +686,7 @@ int sh2_getMetadata(sh2_SensorId_t sensorId, sh2_SensorMetadata_t *pData)
     if (pData == 0) return SH2_ERR_BAD_PARAM;
   
 	// Convert sensorId to metadata recordId
-	int i;
+	unsigned int i;
 	for (i = 0; i < ARRAY_LEN(sensorToRecordMap); i++) {
 		if (sensorToRecordMap[i].sensorId == sensorId) {
 			break;
