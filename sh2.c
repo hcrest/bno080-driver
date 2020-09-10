@@ -1458,6 +1458,7 @@ static void getFrsRx(const uint8_t *payload, uint16_t len)
 		// Empty record, return zero length.
 		*(sh2.opData.getFrs.pWords) = 0;
 		opCompleted(SH2_OK);
+        return;
 	}
 
 	// Store the contents from this response
@@ -1468,6 +1469,7 @@ static void getFrsRx(const uint8_t *payload, uint16_t len)
         // Some data was dropped.
         *(sh2.opData.getFrs.pWords) = 0;
         opCompleted(SH2_ERR_IO);
+        return;
     }
 	
 	// store first word, if we have room
