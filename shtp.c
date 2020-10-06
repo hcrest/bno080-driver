@@ -18,6 +18,7 @@
 /*
  * Hillcrest Sensor Hub Transport Protocol (SHTP) implementation.
  */
+#define CONFIG_SHTP_CONST_NAMES
 
 #include <string.h>
 #include <stdio.h>
@@ -63,8 +64,13 @@ typedef struct shtp_App_s {
     char appName[SHTP_APP_NAME_LEN];
 } shtp_App_t;
 
-typedef struct shtp_AppListener_s {
+typedef struct shtp_AppListener_s
+{
+#ifdef CONFIG_SHTP_CONST_NAMES
+    const char *appName;
+#else
     char appName[SHTP_APP_NAME_LEN];
+#endif
     shtp_AdvertCallback_t *callback;
     void *cookie;
 } shtp_AppListener_t;
@@ -79,9 +85,15 @@ typedef struct shtp_Channel_s {
     void *cookie;
 } shtp_Channel_t;
 
-typedef struct shtp_ChanListener_s {
+typedef struct shtp_ChanListener_s
+{
+#ifdef CONFIG_SHTP_CONST_NAMES
+    const char *appName;
+    const char *chanName;
+#else
     char appName[SHTP_APP_NAME_LEN];
     char chanName[SHTP_CHAN_NAME_LEN];
+#endif
     shtp_Callback_t *callback;
     void *cookie;
 } shtp_ChanListener_t;
@@ -184,8 +196,13 @@ int shtp_init(void)
     shtp.advertPhase = ADVERT_NEEDED;
 
     // Init App Listeners
-    for (unsigned int n = 0; n < SH2_MAX_APPS; n++) {
+    for (unsigned int n = 0; n < SH2_MAX_APPS; n++)
+    {
+#ifdef CONFIG_SHTP_CONST_NAMES
+        shtp.appListener[n].appName = "";
+#else
         strcpy(shtp.appListener[n].appName, "");
+#endif
         shtp.appListener[n].callback = 0;
         shtp.appListener[n].cookie = 0;
     }
@@ -203,9 +220,15 @@ int shtp_init(void)
     }
 
     // Init registered channel listeners array
-    for (unsigned int n = 0; n < SH2_MAX_CHANS; n++) {
+    for (unsigned int n = 0; n < SH2_MAX_CHANS; n++)
+    {
+#ifdef CONFIG_SHTP_CONST_NAMES
+        shtp.chanListener[n].appName = "";
+        shtp.chanListener[n].chanName = "";
+#else
         strcpy(shtp.chanListener[n].appName, "");
         strcpy(shtp.chanListener[n].chanName, "");
+#endif
         shtp.chanListener[n].cookie = 0;
         shtp.chanListener[n].callback = 0;
     }
@@ -661,12 +684,17 @@ static void addAdvertListener(const char *appName,
     shtp_AppListener_t *pAppListener = 0;
 
     // Bail out if no space for more apps
-    if (shtp.nextAppListener >= SH2_MAX_APPS) return;
+    if (shtp.nextAppListener >= SH2_MAX_APPS)
+        return;
 
     // Register this app
     pAppListener = &shtp.appListener[shtp.nextAppListener];
     shtp.nextAppListener++;
+#ifdef CONFIG_SHTP_CONST_NAMES
+    pAppListener->appName = appName;
+#else
     strcpy(pAppListener->appName, appName);
+#endif
     pAppListener->callback = callback;
     pAppListener->cookie = cookie;
 }
@@ -678,13 +706,19 @@ static int addChanListener(const char * appName, const char * chanName,
     shtp_ChanListener_t *pListener = 0;
 
     // Bail out if there are too many listeners registered
-    if (shtp.nextChanListener >= SH2_MAX_CHANS) return SH2_ERR;
+    if (shtp.nextChanListener >= SH2_MAX_CHANS)
+        return SH2_ERR;
 
     // Register channel listener
     pListener = &shtp.chanListener[shtp.nextChanListener];
     shtp.nextChanListener++;
+#ifdef CONFIG_SHTP_CONST_NAMES
+    pListener->appName = appName;
+    pListener->chanName = chanName;
+#else
     strcpy(pListener->appName, appName);
     strcpy(pListener->chanName, chanName);
+#endif
     pListener->callback = callback;
     pListener->cookie = cookie;
 
@@ -761,7 +795,7 @@ static int txProcess(uint8_t chan, uint8_t* pData, uint32_t len)
         shtp.outTransfer[3] = shtp.chan[chan].nextOutSeq++;
 
         // Transmit
-        int status = sh2_hal_tx(shtp.outTransfer, len);
+        status = sh2_hal_tx(shtp.outTransfer, len);
         if (status != SH2_OK) {
             // Error, throw away this cargo
             shtp.txDiscards++;
