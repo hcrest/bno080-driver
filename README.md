@@ -1,3 +1,12 @@
+# NOTICE: Obsolete Code
+
+This repository is no longer maintained.
+
+The currently supported driver for the BNO080 and related SH2 sensor
+hubs can be found at https://github.com/ceva-dsp/sh2.  And an example
+project that demonstrates these modules and their driver are at
+https://github.com/ceva-dsp/sh2-demo-nucleo.
+
 # SensorHub Driver for MCU Applications
 
 The files in this repository provide application-level SH-2 sensor hub functionality.
